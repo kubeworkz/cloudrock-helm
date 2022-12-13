@@ -1,0 +1,64 @@
+{{ if .Values.postgresBackup.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudrock-db-restore
+  labels:
+{{ include "cloudrock.labels" . | indent 4 }}
+spec:
+  replicas: {{ default 1 .Values.replicaCount | int }}
+  selector:
+    matchLabels:
+      app: cloudrock-db-restore
+  template:
+    metadata:
+      labels:
+        app: cloudrock-db-restore
+    spec:
+      {{ if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range $i, $val := .Values.imagePullSecrets }}
+        - name: {{ $val }}
+        {{ end -}}
+      {{ end }}
+      containers:
+        - name: "cloudrock-postgres-restore"
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.postgresBackup.image }}
+          imagePullPolicy: {{ .Values.cloudrock.pullPolicy }}
+          command: ["/bin/sh"]
+          args: ["-c", "while true; do sleep 100; done;"]
+          env:
+            - name: PGHOST
+              value: {{ template "cloudrock.postgresql.host" . }}
+            - name: PGPORT
+              value: {{ template "cloudrock.postgresql.port" . }}
+            - name: PGUSER
+              value: {{ template "cloudrock.postgresql.user" . }}
+            - name: PGDATABASE
+              value: {{ template "cloudrock.postgresql.dbname" . }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "cloudrock.postgresql.secret" . }}
+                  key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+            - name: MINIO_SERVER
+              value: {{ .Values.minio.endpoint | quote }}
+            - name: MINIO_ACCESS_KEY
+              value: {{ .Values.minio.accessKey | quote }}
+            - name: MINIO_SECRET_KEY
+              value: {{ .Values.minio.secretKey | quote }}
+            - name: MINIO_BUCKET
+              value: {{ .Values.minio.bucketName | quote }}
+            - name: MINIO_API_VERSION
+              value: "S3v4"
+          volumeMounts:
+            - name: cloudrock-db-backup-minio-auth
+              mountPath: /usr/local/bin/db-backup-minio-auth
+              subPath: minio-auth
+      volumes:
+        - name: cloudrock-db-backup-minio-auth
+          configMap:
+            name: cloudrock-db-backup-minio-auth
+            defaultMode: 0755
+
+{{ end }}

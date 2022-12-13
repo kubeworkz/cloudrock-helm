@@ -1,0 +1,63 @@
+{{ if .Values.cloudrock.metricsExporter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudrock-metrics-exporter
+  labels:
+{{ include "cloudrock.labels" . | indent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: cloudrock-metrics-exporter
+  template:
+    metadata:
+      labels:
+        app: cloudrock-metrics-exporter
+    spec:
+      {{ if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range $i, $val := .Values.imagePullSecrets }}
+        - name: {{ $val }}
+        {{ end -}}
+      {{ end }}
+      containers:
+      - name: cloudrock-metrics-exporter
+        image: {{ .Values.global.imageRegistry }}/kubeworkz/cloudrock-prometheus-exporter:{{ .Values.cloudrock.metricsExporter.imageTag }}
+        imagePullPolicy: {{ .Values.cloudrock.pullPolicy }}
+        livenessProbe:
+          httpGet:
+            port: 8080
+            path: /metrics/
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        readinessProbe:
+          httpGet:
+            port: 8080
+            path: /metrics/
+          initialDelaySeconds: 3
+          periodSeconds: 3
+        ports:
+          - name: http
+            containerPort: 8080
+            protocol: TCP
+        env:
+          - name: CLOUDROCK_API_URL
+            value: "http://cloudrock-metal-api:8080/api/"
+          - name: CLOUDROCK_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: cloudrock-secret
+                key: CLOUDROCK_SUPPORT_API_TOKEN
+        {{- with .Values.nodeSelector }}
+        nodeSelector:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.affinity }}
+        affinity:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.tolerations }}
+        tolerations:
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{ end }}

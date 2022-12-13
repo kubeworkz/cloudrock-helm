@@ -1,0 +1,36 @@
+{{- if or ( gt .Capabilities.KubeVersion.Major "1" ) ( ge .Capabilities.KubeVersion.Minor "19" ) }}
+apiVersion: networking.k8s.io/v1
+{{- else }}
+apiVersion: networking.k8s.io/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: cloudrock-ui-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    {{ if .Values.ingress.tls.source | eq "letsEncrypt" }}
+    cert-manager.io/cluster-issuer: letsencrypt-prod-issuer
+    {{ end }}
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "Content-Security-Policy: base-uri 'self'; object-src 'none'; media-src 'none'; script-src 'self' www.google-analytics.com sentry.opnd.org; style-src 'self' 'unsafe-inline'; img-src 'self' www.google-analytics.com *.gravatar.com *.tile.openstreetmap.org {{ .Values.apiHostname }} blob: data: ; connect-src 'self' {{ .Values.apiHostname }} nominatim.openstreetmap.org:443 sentry.opnd.org:443 sentry.opnd.org:80 www.google-analytics.com; font-src 'self' data: ; frame-src 'none'; frame-ancestors 'none'";
+    {{ if .Values.ingress.whitelistSourceRange }}
+    nginx.ingress.kubernetes.io/whitelist-source-range: "{{ .Values.ingress.whitelistSourceRange }}"
+    {{ end }}
+spec:
+  rules:
+  - host: {{ .Values.cloudrock-uiHostname }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: cloudrock-ui
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - {{ .Values.cloudrock-uiHostname }}
+    secretName: cloudrock-ui-certificate

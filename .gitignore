@@ -1,0 +1,5 @@
+cloudrock-*.tgz
+.idea/
+charts/
+.vscode/
+*.swp

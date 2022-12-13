@@ -1,0 +1,30 @@
+image:
+  registry: "docker.io"
+  repository: "bitnami/minio"
+  tag: "2021.6.17"
+clientImage:
+  registry: "docker.io"
+  repository: "bitnami/minio-client"
+  tag: "2021.6.13"
+
+accessKey:
+  password: ""
+secretKey:
+  password: ""
+serviceAccount:
+  name: minio-account
+persistence:
+  enabled: true
+  size: 5Gi
+
+ingress:
+  enabled: true
+  hostname: minio.local
+defaultBuckets: 'data'
+
+## Uncomment if you want to change memory request
+#  resources:
+#    requests:
+#      memory: 1Gi
+#    limits:
+#      memory: 1Gi

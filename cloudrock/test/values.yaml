@@ -1,0 +1,311 @@
+# Default values for cloudrock.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+extraReplicas:
+  celery: 1
+  api: 1
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+apiScheme: "http"
+cloudrock-uiScheme: "http"
+apiHostname: cloudrock.local
+cloudrock-uiHostname: cloudrock.local
+
+affinity: {}
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+hpa:
+  api:
+    enabled: false
+    resources:
+      requests:
+        cpu: 500m
+    cpuUtilizationBorder: 70
+  celery:
+    enabled: false
+    workerResources:
+      requests:
+        cpu: 2000m
+    beatResources:
+      requests:
+        cpu: 300m
+    cpuUtilizationBorder: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+service:
+  type: ClusterIP
+  port: 80
+
+storageClassName: local-storage
+
+ingress:
+  tls:
+    source: "secret" # Possible values: `letsEncrypt` and `secret`
+    secretsDir: "tls"  # Enabled only if source == `secret`
+  whitelistSourceRange: '' # E.g. '192.168.22.0/24'
+
+celery:
+  worker:
+    enabled: true
+
+cloudrock:
+  imageName: "kubeworkz/cloudrock-metal"
+  imageTag: "latest"
+  initdbImageName: "bitnami/postgresql"
+  pullPolicy: Always
+  secretKey: "SecretKeyChangeMe"
+  supportToken: "support-token"
+  staffToken: "staff-token"
+  disabledExtensions: []
+  mail:
+    host: ""
+    port: ""
+    username: ""
+    password: ""
+    useTLS: "false"
+    useSSL: "false"
+    from: ""
+    replyTo: ""
+  notificationSubject: "Test subject"
+  timeZone: "UTC"
+  features: []
+  currencyName: "EUR"
+  metalUrl: "http://cloudrock.example.com/"
+  site:
+    name: "Cloudrock"
+    logo: ""
+    address: "Example address"
+    email: "cloudrock@example.com"
+    phone: "test phone"
+  defaultLanguage: "en"
+  languageChoices:
+    - en
+    - et
+    - de
+    - es
+    - ru
+    - lv
+    - it
+  authMethods:
+    - LOCAL_SIGNIN
+    - LDAP
+    - SAML2
+    - SOCIAL_SIGNUP
+  socialAuthMethods:
+    - SMARTIDEE
+    - TARA
+    - KEYCLOAK
+    - EDUTEAMS
+  localIdp:
+    name: "Local IDP"
+    label: "Local IDP label"
+    managementUrl: ""
+    protectedFields: []
+  smartid:
+    secret: "smartid-secret"
+    clientId: "smartid-clientid"
+  tara:
+    secret: "tara-secret"
+    clientId: "tara-clientid"
+    managementUrl: ""
+    protectedFields:
+      - "full_name"
+  keycloak:
+    auth_url: "/auth/realms/Cloudrock/protocol/openid-connect/auth"
+    client_id: "cloudrock"
+    label: "Keycloak"
+    secret: "keycloac-secret"
+    token_url: "http://keycloak-url/token"
+    userinfo_url: "http://keycloak-url/userinfo"
+    managementUrl: ""
+    protectedFields:
+      - "full_name"
+  eduteams:
+    label: "eduTEAMS"
+    clientId: "eduteams-clientid"
+    secret: "eduteams-secret"
+    authUrl: "https://eduteams-url/authorization"
+    tokenUrl: "https://eduteams-url/token"
+    userinfoUrl: "https://eduteams-url/userinfo"
+    managementUrl: "https://eduteams-url.example.com/"
+    protectedFields:
+      - "full_name"
+    remoteRefreshToken: ""
+    remoteClientID: ""
+    remoteSecret: ""
+    remoteUserinfoUrl: ""
+    remoteTokenUrl: ""
+    enableSync: false
+  ldap:
+    host: "ldap://ipa.address"
+    baseDN: "cn=accounts,dc=demo1,dc=freeipa,dc=org"
+    userDN: "cn=users,cn=accounts,dc=demo1,dc=freeipa,dc=org"
+    user: "wladur"
+    password: "ldap-secret"
+    admins: "cn=admins,"
+    support: "cn=support,"
+  freeipa:
+    hostname: "ipa.address"
+    password: "freeipa-secret"
+    username: "cloudrock"
+    verifySSL: "false"
+    groupnamePrefix: "pref_"
+    usernamePrefix: "pref_"
+  valimo:
+    apId: ""
+    apPwd: ""
+    dnsname: ""
+    url: ""
+    signatureProfile: ""
+    label: ""
+    mobilePrefix: ""
+    managementUrl: ""
+    protectedFields: []
+  paypal:
+    secret: ""
+    clientId: ""
+  invoice:
+    company: ""
+    address: ""
+    country: ""
+    email: ""
+    postalCode: ""
+    phoneCountryCode: ""
+    phoneNationalNumber: ""
+    bank: ""
+    bankAccount: ""
+    vatCode: ""
+    paymentInterval: ""
+  slurm:
+    customerPrefix: "test_cst_"
+    projectPrefix: "test_pr_"
+    allocationPrefix: "test_alloc"
+  support:
+    customBackend: "cloudrock_metal.support.backend.atlassian:ServiceDeskBackend"
+    servicedeskEmail: "cloudrock@example.com"
+    servicedeskToken: "support-token"
+    servicedeskUsername: ""
+    servicedeskPassword: ""
+    servicedeskUrl: "https://sd-url/"
+    skipVerify: true
+    organizationField: "Reporter organization"
+    projectKey: "WAL"
+  marketplace:
+    notify_staff: false
+    script:
+      enabled: true
+      dockerImages:
+        python: "kubeworkz/python-script-runner:0.1.1"
+        shell: "alpine:3"
+      kubeconfigPath: "test/k8s/kubeconfig"
+      k8sNamespace: "default"
+      jobTimeout: 1800
+  pid_datacite:
+    repository_id: "repo.test"
+    password: "datacite-pid"
+    prefix: "11.11111"
+    url: "https://datacite-url/dois"
+    publisher: "CloudrockTest"
+    collection_doi: ""
+  uwsgi:
+    plugins: python38
+    processes: 16
+  sentryDSN: ""
+  whitelabeling:
+    shortPageTitle: "Cloudrock Helm Test"
+    modePageTitle: "Cloudrock Helm Test"
+    loginLogoPath: "test/images/login-logo.png"
+    sidebarLogoPath: "test/images/login-logo.png"
+    poweredByLogoPath: "test/images/login-logo.png"
+    faviconPath: "test/images/favicon.png"
+    tosHtmlPath: "test/files/tos.html"
+    brandColor: ""
+    heroImagePath: ""
+    heroLinkLabel: ""
+    heroLinkUrl: ""
+    privacyHtmlPath: "test/files/privacy.html"
+    siteDescription: "Cloudrock Helm Test"
+  metalTemplating:
+    metalTemplatesPath: "metal_templates"
+  saml2:
+    dir: "test/cloudrock_saml2"
+    federations:
+      - CUSTOM
+  ssh_public_key_path: "test/ssh/id_rsa"
+  ssh_private_key_path: "test/ssh/id_rsa.pub"
+  cloudrock-ui:
+    imageName: "kubeworkz/cloudrock-ui"
+    googleAnalyticsID: ""
+    userMandatoryFields: {}
+    userRegistrationHiddenFields: {}
+    docsLink: "https://docs.cloudrock.ca"
+    invitationCivilCodeHelpText: ""
+  metricsExporter:
+    enabled: true
+    includeAnnotations: false
+    imageTag: latest
+  uvkEverypay:
+    enabled: true
+    uvkServer: "https://uvk-test.ut.ee/client/a74/server.php?format=JSON&action=uvk__"
+    everypayGateway: "https://igw-demo.every-pay.com/api/v4"
+    everypayUsername: "abc"
+    everypayPassword: "S0meP4ssw0rd?@#$"
+
+bootstrap:
+  enabled: true
+  script: "bootstrap.sh"
+  dir: "test/bootstrap"
+
+postgresql:
+  database: "cloudrock"
+  username: "cloudrock"
+
+postgresBackup:
+  enabled: false
+  schedule: "0 5 * * *"
+  rotationSchedule: "0 6 * * 6"
+  maxNumber: 10
+  image: kubeworkz/postgres-minio:0.1.0
+  name: "cloudrock"
+
+minio:
+  accessKey: ""
+  secretKey: ""
+  bucketName: data
+  ## min.io service endpoint used for communication inside a cluster
+  endpoint: "http://minio:9000" ## See docs/service-endpoint.md for details.
+
+rabbitmq:
+  user: "cloudrock"
+  password: "cloudrock"
+  ## hostname of rabbitmq service
+  host: "rmq-rabbitmq" ## See docs/service-endpoint.md for details.
+  customManagementPort:
+  customAMQPPort:
+
+stressTesting:
+  enabled: false
+  locustFilePath: "locust_task/locust_test.py"
+
+global:
+  imageRegistry: "registry.hpc.ut.ee/mirror"

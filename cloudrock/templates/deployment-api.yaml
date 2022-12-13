@@ -1,0 +1,174 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudrock-metal-api
+  labels:
+{{ include "cloudrock.labels" . | indent 4 }}
+spec:
+  {{ if .Values.extraReplicas.api }}
+  replicas: {{ add .Values.replicaCount .Values.extraReplicas.api }}
+  {{ else }}
+  replicas: {{ .Values.replicaCount }}
+  {{ end }}
+  selector:
+    matchLabels:
+      app: cloudrock-metal-api
+  template:
+    metadata:
+      labels:
+        app: cloudrock-metal-api
+    spec:
+      {{ if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range $i, $val := .Values.imagePullSecrets }}
+        - name: {{ $val }}
+        {{ end -}}
+      {{ end }}
+      containers:
+        - name: cloudrock-metal-api
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
+          imagePullPolicy: {{ .Values.cloudrock.pullPolicy }}
+          args:
+            - "metal"
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /api/configuration/
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 100
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /api/configuration/
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 100
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+          - name: GLOBAL_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloudrock-secret
+                key: GLOBAL_SECRET_KEY
+          - name: POSTGRESQL_HOST
+            value: {{ template "cloudrock.postgresql.host" . }}
+          - name: POSTGRESQL_PORT
+            value: {{ template "cloudrock.postgresql.port" . }}
+          - name: POSTGRESQL_USER
+            value: {{ template "cloudrock.postgresql.user" . }}
+          - name: POSTGRESQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "cloudrock.postgresql.secret" . }}
+                key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+          - name: POSTGRESQL_NAME
+            value: {{ template "cloudrock.postgresql.dbname" . }}
+          {{ if .Values.cloudrock.sentryDSN }}
+          - name: SENTRY_DSN
+            value: {{ .Values.cloudrock.sentryDSN | quote }}
+          - name: SENTRY_ENVIRONMENT
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{ end }}
+          {{ if .Values.cloudrock.disabledExtensions }}
+          - name: CLOUDROCK_DISABLED_EXTENSIONS
+            value: {{ .Values.cloudrock.disabledExtensions | toJson | quote }}
+          {{ end }}
+          resources:
+            {{ if .Values.hpa.api.enabled }}
+            {{- toYaml .Values.hpa.api.resources | nindent 12 }}
+            {{ else }}
+            {{- toYaml .Values.resources | nindent 12 }}
+            {{ end }}
+          volumeMounts:
+            - name: api-override
+              mountPath: /etc/cloudrock/override.conf.py
+              subPath: override.conf.py
+            - name: api-celery
+              mountPath: /etc/cloudrock/celery.conf
+              subPath: celery.conf
+            - name: logging-override
+              mountPath: /etc/cloudrock/logging.conf.py
+              subPath: logging.conf.py
+            - name: logging-override
+              mountPath: /etc/cloudrock/uwsgi.ini
+              subPath: uwsgi.ini
+            {{ $templatesPath := .Values.cloudrock.metalTemplating.metalTemplatesPath }}
+            {{ $templatesRoot := $templatesPath | printf "%s/"}}
+            {{ $templatesPathPattern := $templatesPath | printf "%s/**" }}
+            {{ range $path, $_ := .Files.Glob $templatesPathPattern }}
+            - name: cloudrock-metal-template
+              mountPath: {{ $path | replace $templatesRoot "" | printf "/usr/src/cloudrock/src/%s" }}
+              subPath: {{ $path | base }}
+            {{ end }}
+            {{ if has "SAML2" .Values.cloudrock.authMethods }}
+            - name: cloudrock-saml2-certs
+              mountPath: /etc/cloudrock/saml2/credentials
+            - name: cloudrock-saml2-conf
+              mountPath: /etc/cloudrock/saml2.conf.py
+              subPath: saml2.conf.py
+            {{ end }}
+            {{ if .Values.cloudrock.ssh_public_key_path }}
+            - name: cloudrock-ssh-pub-key
+              mountPath: /etc/cloudrock/id_rsa.pub
+              subPath: id_rsa.pub
+            {{ end }}
+            {{ if .Values.cloudrock.ssh_private_key_path }}
+            - name: cloudrock-ssh-key
+              mountPath: /etc/cloudrock/id_rsa
+              subPath: id_rsa
+            {{ end }}
+      volumes:
+      - name: api-override
+        configMap:
+          name: api-override-config
+      - name: api-celery
+        configMap:
+          name: api-celery-config
+      - name: cloudrock-metal-template
+        configMap:
+          name: metal-template-config
+      - name: logging-override
+        configMap:
+          name: metal-logging-override-config
+          items:
+            - key: uwsgi.ini
+              path: uwsgi.ini
+            - key: logging.conf.py
+              path: logging.conf.py
+      {{ if has "SAML2" .Values.cloudrock.authMethods }}
+      - name: cloudrock-saml2-certs
+        secret:
+          secretName: cloudrock-saml2-secret
+      - name: cloudrock-saml2-conf
+        configMap:
+          name: cloudrock-saml2-conf-config
+      {{ end }}
+      {{ if .Values.cloudrock.ssh_public_key_path }}
+      - name: cloudrock-ssh-pub-key
+        configMap:
+          name: cloudrock-ssh-pub-key-config
+      {{ end }}
+      {{ if .Values.cloudrock.ssh_private_key_path }}
+      - name: cloudrock-ssh-key
+        secret:
+          secretName: cloudrock-ssh-key-config
+          defaultMode: 0600
+      {{ end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

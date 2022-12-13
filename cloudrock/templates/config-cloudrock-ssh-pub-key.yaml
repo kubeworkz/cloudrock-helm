@@ -1,0 +1,9 @@
+{{ if .Values.cloudrock.ssh_public_key_path }}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: cloudrock-ssh-pub-key-config
+data:
+  id_rsa.pub: |-
+{{ .Files.Get .Values.cloudrock.ssh_public_key_path | indent 4 }}
+{{ end }}

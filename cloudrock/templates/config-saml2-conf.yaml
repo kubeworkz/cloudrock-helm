@@ -1,0 +1,10 @@
+{{ if has "SAML2" .Values.cloudrock.authMethods }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudrock-saml2-conf-config
+data:
+{{ $configFile := .Values.cloudrock.saml2.dir | printf "%s/saml2.conf.py" }}
+  saml2.conf.py: |-
+{{ .Files.Get $configFile | indent 4 }}
+{{ end }}

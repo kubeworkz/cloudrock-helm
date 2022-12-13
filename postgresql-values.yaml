@@ -1,0 +1,14 @@
+nameOverride: "cloudrock"
+
+auth:
+  username: "cloudrock"
+  password: "cloudrock"
+  database: "cloudrock"
+
+primary:
+  persistence:
+    size: "10Gi"
+
+image:
+  registry: "docker.io"
+  tag: 12

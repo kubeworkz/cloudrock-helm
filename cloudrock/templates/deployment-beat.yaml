@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudrock-metal-beat
+  labels:
+{{ include "cloudrock.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: cloudrock-metal-beat
+  template:
+    metadata:
+      labels:
+        app: cloudrock-metal-beat
+    spec:
+      {{ if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range $i, $val := .Values.imagePullSecrets }}
+        - name: {{ $val }}
+        {{ end -}}
+      {{ end }}
+      containers:
+        - name: cloudrock-metal-beat
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
+          imagePullPolicy: {{ .Values.cloudrock.pullPolicy }}
+          args:
+            - "beat"
+          env:
+          - name: GLOBAL_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloudrock-secret
+                key: GLOBAL_SECRET_KEY
+          - name: POSTGRESQL_HOST
+            value: {{ template "cloudrock.postgresql.host" . }}
+          - name: POSTGRESQL_PORT
+            value: {{ template "cloudrock.postgresql.port" . }}
+          - name: POSTGRESQL_USER
+            value: {{ template "cloudrock.postgresql.user" . }}
+          - name: POSTGRESQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "cloudrock.postgresql.secret" . }}
+                key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+          - name: POSTGRESQL_NAME
+            value: {{ template "cloudrock.postgresql.dbname" . }}
+          {{ if .Values.cloudrock.sentryDSN }}
+          - name: SENTRY_DSN
+            value: {{ .Values.cloudrock.sentryDSN | quote }}
+          - name: SENTRY_ENVIRONMENT
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{ end }}
+          {{ if .Values.cloudrock.disabledExtensions }}
+          - name: CLOUDROCK_DISABLED_EXTENSIONS
+            value: {{ .Values.cloudrock.disabledExtensions | toJson | quote }}
+          {{ end }}
+          resources:
+            {{ if .Values.hpa.celery.enabled }}
+            {{- toYaml .Values.hpa.celery.beatResources | nindent 12 }}
+            {{ else }}
+            {{- toYaml .Values.resources | nindent 12 }}
+            {{ end }}
+          volumeMounts:
+            - name: api-override
+              mountPath: /etc/cloudrock/override.conf.py
+              subPath: override.conf.py
+            - name: api-celery
+              mountPath: /etc/cloudrock/celery.conf
+              subPath: celery.conf
+            - name: logging-override
+              mountPath: /etc/cloudrock/logging.conf.py
+              subPath: logging.conf.py
+            - name: logging-override
+              mountPath: /usr/local/bin/beat
+              subPath: beat
+            {{ if .Values.cloudrock.ssh_public_key_path }}
+            - name: cloudrock-ssh-pub-key
+              mountPath: /etc/cloudrock/id_rsa.pub
+              subPath: id_rsa.pub
+            {{ end }}
+            {{ if .Values.cloudrock.ssh_private_key_path }}
+            - name: cloudrock-ssh-key
+              mountPath: /etc/cloudrock/id_rsa
+              subPath: id_rsa
+            {{ end }}
+      volumes:
+      - name: api-override
+        configMap:
+          name: api-override-config
+      - name: api-celery
+        configMap:
+          name: api-celery-config
+      - name: logging-override
+        configMap:
+          name: metal-logging-override-config
+          items:
+            - key: beat
+              path: beat
+              mode: 0755
+            - key: logging.conf.py
+              path: logging.conf.py
+      {{ if .Values.cloudrock.ssh_public_key_path }}
+      - name: cloudrock-ssh-pub-key
+        configMap:
+          name: cloudrock-ssh-pub-key-config
+      {{ end }}
+      {{ if .Values.cloudrock.ssh_private_key_path }}
+      - name: cloudrock-ssh-key
+        secret:
+          secretName: cloudrock-ssh-key-config
+          defaultMode: 0600
+      {{ end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

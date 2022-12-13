@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudrock-cleanup-script-config
+data:
+  cloudrock-cleanup: |-
+    #!/bin/sh
+
+    echo "[+] Running clear sessions command"
+    cloudrock clearsessions
+    echo "[+] Running delete revisions command"
+    cloudrock deleterevisions --keep 5 --days=90
+    echo "[+] Finished"

@@ -1,0 +1,17 @@
+apiVersion: v1
+name: cloudrock
+version: 0.1.1
+description: Cloudrock - Open-Source Cloud Marketplace
+keywords:
+  - marketplace
+  - openstack
+  - vmware
+  - slurm
+  - billing
+home: https://cloudrock.ca
+icon: https://cloudrock.ca/assets/img/icon-bot-01-150x240.png
+maintainers:
+  - name: CloudRock team
+    email: support@cloudrock.ca
+    url: https://cloudrock.ca
+appVersion: "5.4.4"

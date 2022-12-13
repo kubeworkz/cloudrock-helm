@@ -1,0 +1,23 @@
+{{ if .Values.cloudrock.metricsExporter.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudrock-metrics-exporter
+  labels:
+{{ include "cloudrock.labels" . | indent 4 }}
+{{ if .Values.cloudrock.metricsExporter.includeAnnotations }}
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/scrape-path: '/metrics'
+    prometheus.io/scrape-port: '8080'
+{{ end }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: cloudrock-metrics-exporter
+{{ end }}

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudrock-ui-files-config
+data:
+  {{ $fpath := "" }}
+
+  {{ if .Values.cloudrock.whitelabeling.privacyHtmlPath }}
+    {{ $fpath = .Values.cloudrock.whitelabeling.privacyHtmlPath }}
+  privacy.html: |
+{{ .Files.Get $fpath | indent 4 }}
+  privacy-full.html: |
+    <html>
+    <head>
+      <title>{{ .Values.cloudrock.site.name }} Privacy Policy</title>
+    </head>
+    <body>
+{{ .Files.Get $fpath | indent 8 }}
+    </body>
+    </html>
+  {{ end }}
+
+  {{ if .Values.cloudrock.whitelabeling.tosHtmlPath }}
+    {{ $fpath = .Values.cloudrock.whitelabeling.tosHtmlPath }}
+  tos.html: |
+{{ .Files.Get $fpath | indent 4 }}
+  {{ end }}

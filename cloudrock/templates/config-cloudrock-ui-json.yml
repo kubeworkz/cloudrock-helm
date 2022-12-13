@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudrock-ui-json-config
+data:
+  config.json: |
+    {
+      {{ if has "billing" .Values.cloudrock.features }}
+      "accountingMode": "billing",
+      {{ end }}
+
+      {{ if has "secure_session" .Values.cloudrock.features }}
+      "authStorage": "sessionStorage",
+      {{ end }}
+
+      "apiEndpoint": {{ printf "%s://%s/" .Values.apiScheme .Values.apiHostname | quote }}
+    }

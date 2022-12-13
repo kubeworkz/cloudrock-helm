@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudrock-ui-icons-config
+binaryData:
+  {{ $fpath := "" }}
+
+  {{ if .Values.cloudrock.whitelabeling.loginLogoPath }}
+    {{ $fpath = .Values.cloudrock.whitelabeling.loginLogoPath }}
+  login_logo.png: |
+{{ .Files.Get $fpath | b64enc | indent 4 }}
+  {{ end }}
+
+  {{ if .Values.cloudrock.whitelabeling.sidebarLogoPath }}
+    {{ $fpath = .Values.cloudrock.whitelabeling.sidebarLogoPath }}
+  sidebar_logo.png: |
+{{ .Files.Get $fpath | b64enc | indent 4 }}
+  {{ end }}
+
+  {{ if .Values.cloudrock.whitelabeling.poweredByLogoPath }}
+    {{ $fpath = .Values.cloudrock.whitelabeling.poweredByLogoPath }}
+  poweredby_logo.png: |
+{{ .Files.Get $fpath | b64enc | indent 4 }}
+  {{ end }}
+
+  {{ if .Values.cloudrock.whitelabeling.faviconPath }}
+    {{ $fpath = .Values.cloudrock.whitelabeling.faviconPath }}
+  favicon.ico: |
+{{ .Files.Get $fpath | b64enc | indent 4 }}
+  {{ end }}
+
+  {{ if .Values.cloudrock.whitelabeling.heroImagePath }}
+    {{ $fpath = .Values.cloudrock.whitelabeling.heroImagePath }}
+  hero_image.jpg: |
+{{ .Files.Get $fpath | b64enc | indent 4 }}
+  {{ end }}

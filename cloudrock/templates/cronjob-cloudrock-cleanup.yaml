@@ -1,0 +1,59 @@
+{{- if or ( gt .Capabilities.KubeVersion.Major "1" ) ( ge .Capabilities.KubeVersion.Minor "21" ) }}
+apiVersion: batch/v1
+{{- else }}
+apiVersion: batch/v1beta1
+{{- end }}
+kind: CronJob
+metadata:
+  name: cloudrock-cleanup-cronjob
+spec:
+  schedule: "0 5 * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: cloudrock-cleanup
+              image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
+              imagePullPolicy: {{ .Values.cloudrock.pullPolicy }}
+              args:
+                - cloudrock-cleanup
+              env:
+                - name: GLOBAL_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: cloudrock-secret
+                      key: GLOBAL_SECRET_KEY
+                - name: POSTGRESQL_HOST
+                  value: {{ template "cloudrock.postgresql.host" . }}
+                - name: POSTGRESQL_PORT
+                  value: {{ template "cloudrock.postgresql.port" . }}
+                - name: POSTGRESQL_USER
+                  value: {{ template "cloudrock.postgresql.user" . }}
+                - name: POSTGRESQL_NAME
+                  value: {{ template "cloudrock.postgresql.dbname" . }}
+                - name: POSTGRESQL_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ template "cloudrock.postgresql.secret" . }}
+                      key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+                - name: LOGGING_LOG_FILE
+                  value: "/var/log/cloudrock/core.log"
+                - name: EVENTS_LOG_FILE
+                  value: "/var/log/cloudrock/events.log"
+                {{ if .Values.cloudrock.sentryDSN }}
+                - name: SENTRY_DSN
+                  value: {{ .Values.cloudrock.sentryDSN | quote }}
+                {{ end }}
+              volumeMounts:
+                - name: cloudrock-cleanup-script
+                  mountPath: /usr/local/bin/cloudrock-cleanup
+                  subPath: cloudrock-cleanup
+          volumes:
+            - name: cloudrock-cleanup-script
+              configMap:
+                name: cloudrock-cleanup-script-config
+                defaultMode: 0755
+          restartPolicy: Never

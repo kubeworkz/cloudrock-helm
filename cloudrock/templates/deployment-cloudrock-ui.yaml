@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudrock-ui
+  labels:
+{{ include "cloudrock.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: cloudrock-ui
+  template:
+    metadata:
+      labels:
+        app: cloudrock-ui
+    spec:
+      {{ if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range $i, $val := .Values.imagePullSecrets }}
+        - name: {{ $val }}
+        {{ end -}}
+      {{ end }}
+      containers:
+        - name: cloudrock-ui
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.cloudrock-ui.imageName }}:{{ .Values.cloudrock.imageTag }}
+          imagePullPolicy: {{ .Values.cloudrock.pullPolicy }}
+          livenessProbe:
+            httpGet:
+              port: 80
+              path: /scripts/configs/config.json
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          readinessProbe:
+            httpGet:
+              port: 80
+              path: /scripts/configs/config.json
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: TITLE
+              value: {{ .Values.cloudrock.whitelabeling.shortPageTitle }}
+          volumeMounts:
+            - name: json
+              mountPath: /opnd/config.json
+              subPath: config.json
+            - name: nginx
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: icons
+              mountPath: /var/www/cloudrock/icons
+            - name: files
+              mountPath: /var/www/cloudrock/files
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+      - name: json
+        configMap:
+          name: cloudrock-ui-json-config
+      - name: nginx
+        configMap:
+          name: cloudrock-ui-nginx-config
+      - name: icons
+        configMap:
+          name: cloudrock-ui-icons-config
+      - name: files
+        configMap:
+          name: cloudrock-ui-files-config
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

@@ -1,0 +1,173 @@
+{{ if .Values.celery.worker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudrock-metal-worker
+  labels:
+{{ include "cloudrock.labels" . | indent 4 }}
+spec:
+  {{ if .Values.extraReplicas.celery }}
+  replicas: {{ add .Values.replicaCount .Values.extraReplicas.celery }}
+  {{ else }}
+  replicas: {{ .Values.replicaCount }}
+  {{ end }}
+  selector:
+    matchLabels:
+      app: cloudrock-metal-worker
+  template:
+    metadata:
+      labels:
+        app: cloudrock-metal-worker
+    spec:
+      {{ if .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range $i, $val := .Values.imagePullSecrets }}
+        - name: {{ $val }}
+        {{ end -}}
+      {{ end }}
+      containers:
+        - name: cloudrock-metal-worker
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
+          imagePullPolicy: {{ .Values.cloudrock.pullPolicy }}
+          args:
+            - "worker"
+          livenessProbe:
+            exec:
+              command:
+                - "/bin/bash"
+                - "-c"
+                - "celery -A cloudrock_core.server inspect -d celery@$HOSTNAME ping"
+            initialDelaySeconds: 15
+            periodSeconds: 25
+            timeoutSeconds: 20
+          readinessProbe:
+            exec:
+              command:
+                - "/bin/bash"
+                - "-c"
+                - "celery -A cloudrock_core.server inspect -d celery@$HOSTNAME ping"
+            initialDelaySeconds: 20
+            periodSeconds: 25
+            timeoutSeconds: 20
+          env:
+          - name: GLOBAL_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloudrock-secret
+                key: GLOBAL_SECRET_KEY
+          - name: POSTGRESQL_HOST
+            value: {{ template "cloudrock.postgresql.host" . }}
+          - name: POSTGRESQL_PORT
+            value: {{ template "cloudrock.postgresql.port" . }}
+          - name: POSTGRESQL_USER
+            value: {{ template "cloudrock.postgresql.user" . }}
+          - name: POSTGRESQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "cloudrock.postgresql.secret" . }}
+                key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+          - name: POSTGRESQL_NAME
+            value: {{ template "cloudrock.postgresql.dbname" . }}
+          {{ if .Values.cloudrock.sentryDSN }}
+          - name: SENTRY_DSN
+            value: {{ .Values.cloudrock.sentryDSN | quote }}
+          - name: SENTRY_ENVIRONMENT
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{ end }}
+          {{ if .Values.cloudrock.disabledExtensions }}
+          - name: CLOUDROCK_DISABLED_EXTENSIONS
+            value: {{ .Values.cloudrock.disabledExtensions | toJson | quote }}
+          {{ end }}
+          resources:
+            {{ if .Values.hpa.celery.enabled }}
+            {{- toYaml .Values.hpa.celery.workerResources | nindent 12 }}
+            {{ else }}
+            {{- toYaml .Values.resources | nindent 12 }}
+            {{ end }}
+          volumeMounts:
+            - name: api-override
+              mountPath: /etc/cloudrock/override.conf.py
+              subPath: override.conf.py
+            - name: api-celery
+              mountPath: /etc/cloudrock/celery.conf
+              subPath: celery.conf
+            - name: logging-override
+              mountPath: /etc/cloudrock/logging.conf.py
+              subPath: logging.conf.py
+            - name: logging-override
+              mountPath: /usr/local/bin/worker
+              subPath: worker
+            {{ $templatesPath := .Values.cloudrock.metalTemplating.metalTemplatesPath }}
+            {{ $templatesRoot := $templatesPath | printf "%s/"}}
+            {{ $templatesPathPattern := $templatesPath | printf "%s/**" }}
+            {{ range $path, $_ := .Files.Glob $templatesPathPattern }}
+            - name: cloudrock-metal-template
+              mountPath: {{ $path | replace $templatesRoot "" | printf "/usr/src/cloudrock/src/%s" }}
+              subPath: {{ $path | base }}
+            {{ end }}
+            {{ if .Values.cloudrock.ssh_public_key_path }}
+            - name: cloudrock-ssh-pub-key
+              mountPath: /etc/cloudrock/id_rsa.pub
+              subPath: id_rsa.pub
+            {{ end }}
+            {{ if .Values.cloudrock.ssh_private_key_path }}
+            - name: cloudrock-ssh-key
+              mountPath: /etc/cloudrock/id_rsa
+              subPath: id_rsa
+            {{ end }}
+            {{ if .Values.cloudrock.marketplace.script.enabled }}
+            - name: cloudrock-script-kubeconfig
+              mountPath: /etc/cloudrock/kubeconfig
+              subPath: kubeconfig
+              readOnly: true
+            {{ end }}
+      volumes:
+      - name: api-override
+        configMap:
+          name: api-override-config
+      - name: api-celery
+        configMap:
+          name: api-celery-config
+      - name: logging-override
+        configMap:
+          name: metal-logging-override-config
+          items:
+            - key: worker
+              path: worker
+              mode: 0755
+            - key: logging.conf.py
+              path: logging.conf.py
+      - name: cloudrock-metal-template
+        configMap:
+          name: metal-template-config
+      {{ if .Values.cloudrock.ssh_public_key_path }}
+      - name: cloudrock-ssh-pub-key
+        configMap:
+          name: cloudrock-ssh-pub-key-config
+      {{ end }}
+      {{ if .Values.cloudrock.ssh_private_key_path }}
+      - name: cloudrock-ssh-key
+        secret:
+          secretName: cloudrock-ssh-key-config
+          defaultMode: 0600
+      {{ end }}
+      {{ if .Values.cloudrock.marketplace.script.enabled }}
+      - name: cloudrock-script-kubeconfig
+        secret:
+          secretName: cloudrock-script-kubeconfig
+      {{ end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+{{ end }}

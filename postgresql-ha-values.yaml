@@ -1,0 +1,18 @@
+nameOverride: "cloudrock"
+
+postgresql:
+  database: "cloudrock"
+  username: "cloudrock"
+  password: "cloudrock"
+  replicaCount: 3
+  syncReplication: false
+  repmgrUsername: "repmgr"
+  repmgrPassword: "cloudrock"
+persistence:
+  size: "10Gi"
+pgpoolImage:
+  registry: "docker.io"
+  tag: 4
+postgresqlImage:
+  registry: "docker.io"
+  tag: 12

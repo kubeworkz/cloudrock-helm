@@ -1,0 +1,88 @@
+{{ if .Values.bootstrap.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}-bootstrap-job"
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+  annotations:
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    metadata:
+      name: "{{ .Release.Name }}"
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: bootstrap-job
+        image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
+        args:
+          - bootstrapper
+        env:
+          - name: GLOBAL_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloudrock-secret
+                key: GLOBAL_SECRET_KEY
+          - name: POSTGRESQL_HOST
+            value: {{ template "cloudrock.postgresql.host" . }}
+          - name: POSTGRESQL_PORT
+            value: {{ template "cloudrock.postgresql.port" . }}
+          - name: POSTGRESQL_USER
+            value: {{ template "cloudrock.postgresql.user" . }}
+          - name: POSTGRESQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "cloudrock.postgresql.secret" . }}
+                key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+          - name: POSTGRESQL_NAME
+            value: {{ template "cloudrock.postgresql.dbname" . }}
+          {{ if .Values.cloudrock.sentryDSN }}
+          - name: SENTRY_DSN
+            value: {{ .Values.cloudrock.sentryDSN | quote }}
+          - name: SENTRY_ENVIRONMENT
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{ end }}
+          {{ if .Values.cloudrock.disabledExtensions }}
+          - name: CLOUDROCK_DISABLED_EXTENSIONS
+            value: {{ .Values.cloudrock.disabledExtensions | toJson | quote }}
+          {{ end }}
+        volumeMounts:
+          - name: api-override
+            mountPath: /etc/cloudrock/override.conf.py
+            subPath: override.conf.py
+          - name: api-celery
+            mountPath: /etc/cloudrock/celery.conf
+            subPath: celery.conf
+          - name: bootstrap-config
+            mountPath: /usr/local/bin/bootstrapper
+            subPath: bootstrapper
+          {{ $bootstrapPathPattern := .Values.bootstrap.dir | printf "%s/**" }}
+          {{ range $path, $data := .Files.Glob $bootstrapPathPattern }}
+          - name: bootstrap-config
+            mountPath: {{ printf "/root/%s" $path }}
+            subPath: {{ $path | base }}
+          {{ end }}
+      volumes:
+        - name: bootstrap-config
+          configMap:
+            name: metal-bootstrap-config
+            defaultMode: 0755
+        - name: api-override
+          configMap:
+            name: api-override-config
+        - name: api-celery
+          configMap:
+            name: api-celery-config
+{{ end }}

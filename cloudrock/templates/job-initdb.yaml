@@ -1,0 +1,243 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cloudrock-metal-initdb-job
+  labels:
+{{ include "cloudrock.labels" . | indent 4 }}
+  annotations:
+    "helm.sh/hook": post-install, post-upgrade
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+        app.kubernetes.io/instance: {{ .Release.Name | quote }}
+        app.kubernetes.io/version: {{ .Chart.AppVersion }}
+        helm.sh/chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    spec:
+      initContainers:
+      - name: check-db-ready
+        image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.initdbImageName }}:{{ template "cloudrock.postgresql.version" . }}
+        command: ['sh', '-c',
+          'until pg_isready;
+          do echo waiting for database; sleep 2; done;']
+        env:
+          - name: PGHOST
+            value: {{ template "cloudrock.postgresql.host" . }}
+          - name: PGPORT
+            value: {{ template "cloudrock.postgresql.port" . }}
+          - name: PGUSER
+            value: {{ template "cloudrock.postgresql.user" . }}
+          - name: PGDATABASE
+            value: {{ template "cloudrock.postgresql.dbname" . }}
+      containers:
+        - name: create-celery-results-db
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.initdbImageName }}:{{ template "cloudrock.postgresql.version" . }}
+          command: ['sh', '-c', 'createdb celery_results || true']
+          env:
+            - name: PGHOST
+              value: {{ template "cloudrock.postgresql.host" . }}
+            - name: PGPORT
+              value: {{ template "cloudrock.postgresql.port" . }}
+            - name: PGUSER
+              value: {{ template "cloudrock.postgresql.user" . }}
+            - name: PGDATABASE
+              value: {{ template "cloudrock.postgresql.dbname" . }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "cloudrock.postgresql.secret" . }}
+                  key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+        - name: cloudrock-metal-migrate
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
+          args:
+            - initdb
+          env:
+          - name: GLOBAL_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloudrock-secret
+                key: GLOBAL_SECRET_KEY
+          - name: POSTGRESQL_HOST
+            value: {{ template "cloudrock.postgresql.host" . }}
+          - name: POSTGRESQL_PORT
+            value: {{ template "cloudrock.postgresql.port" . }}
+          - name: POSTGRESQL_USER
+            value: {{ template "cloudrock.postgresql.user" . }}
+          - name: POSTGRESQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "cloudrock.postgresql.secret" . }}
+                key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+          - name: POSTGRESQL_NAME
+            value: {{ template "cloudrock.postgresql.dbname" . }}
+          {{ if .Values.cloudrock.sentryDSN }}
+          - name: SENTRY_DSN
+            value: {{ .Values.cloudrock.sentryDSN | quote }}
+          - name: SENTRY_ENVIRONMENT
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{ end }}
+          {{ if .Values.cloudrock.disabledExtensions }}
+          - name: CLOUDROCK_DISABLED_EXTENSIONS
+            value: {{ .Values.cloudrock.disabledExtensions | toJson | quote }}
+          {{ end }}
+          volumeMounts:
+            - name: api-override
+              mountPath: /etc/cloudrock/override.conf.py
+              subPath: override.conf.py
+            - name: api-celery
+              mountPath: /etc/cloudrock/celery.conf
+              subPath: celery.conf
+            - name: config-features-json
+              mountPath: /etc/cloudrock/features.json
+              subPath: features.json
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        - name: cloudrock-metal-create-dbcache
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
+          args:
+            - initdb-cache
+          env:
+          - name: GLOBAL_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloudrock-secret
+                key: GLOBAL_SECRET_KEY
+          - name: POSTGRESQL_HOST
+            value: {{ template "cloudrock.postgresql.host" . }}
+          - name: POSTGRESQL_PORT
+            value: {{ template "cloudrock.postgresql.port" . }}
+          - name: POSTGRESQL_USER
+            value: {{ template "cloudrock.postgresql.user" . }}
+          - name: POSTGRESQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "cloudrock.postgresql.secret" . }}
+                key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+          - name: POSTGRESQL_NAME
+            value: {{ template "cloudrock.postgresql.dbname" . }}
+          {{ if .Values.cloudrock.sentryDSN }}
+          - name: SENTRY_DSN
+            value: {{ .Values.cloudrock.sentryDSN | quote }}
+          - name: SENTRY_ENVIRONMENT
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{ end }}
+          volumeMounts:
+            - name: api-override
+              mountPath: /etc/cloudrock/override.conf.py
+              subPath: override.conf.py
+            - name: api-celery
+              mountPath: /etc/cloudrock/celery.conf
+              subPath: celery.conf
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+{{ if has "SAML2" .Values.cloudrock.authMethods }}
+        - name: cloudrock-metal-saml2-metadata-sync
+          image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
+          args:
+            - saml2-metadata-sync
+          env:
+          - name: GLOBAL_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: cloudrock-secret
+                key: GLOBAL_SECRET_KEY
+          - name: POSTGRESQL_HOST
+            value: {{ template "cloudrock.postgresql.host" . }}
+          - name: POSTGRESQL_PORT
+            value: {{ template "cloudrock.postgresql.port" . }}
+          - name: POSTGRESQL_USER
+            value: {{ template "cloudrock.postgresql.user" . }}
+          - name: POSTGRESQL_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "cloudrock.postgresql.secret" . }}
+                key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
+          - name: POSTGRESQL_NAME
+            value: {{ template "cloudrock.postgresql.dbname" . }}
+          {{ if has "TAAT" .Values.cloudrock.saml2.federations }}
+          - name: TAAT_METADATA_URL
+            value: https://taeva.taat.edu.ee/metadata/metadata.taat+hub+prod+idp.xml
+          {{ end }}
+          {{ if has "EDUGAIN" .Values.cloudrock.saml2.federations }}
+          - name: EDUGAIN_METADATA_URL
+            value: http://md.incommon.org/InCommon/InCommon-metadata-idp-only.xml
+          {{ end }}
+          {{ if has "HAKA_TEST" .Values.cloudrock.saml2.federations }}
+          - name: HAKA_TEST_METADATA_URL
+            value: https://haka.funet.fi/metadata/haka_test_metadata_signed.xml
+          {{ end }}
+          {{ if has "HAKA_PROD" .Values.cloudrock.saml2.federations }}
+          - name: HAKA_PROD_METADATA_URL
+            value: https://haka.funet.fi/metadata/haka-metadata.xml
+          {{ end }}
+          {{ if .Values.cloudrock.sentryDSN }}
+          - name: SENTRY_DSN
+            value: {{ .Values.cloudrock.sentryDSN | quote }}
+          - name: SENTRY_ENVIRONMENT
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{ end }}
+          volumeMounts:
+            - name: api-override
+              mountPath: /etc/cloudrock/override.conf.py
+              subPath: override.conf.py
+            - name: api-celery
+              mountPath: /etc/cloudrock/celery.conf
+              subPath: celery.conf
+            - name: cloudrock-saml2-certs
+              mountPath: /etc/cloudrock/saml2/credentials
+            - name: cloudrock-saml2-conf
+              mountPath: /etc/cloudrock/saml2.conf.py
+              subPath: saml2.conf.py
+            {{ if has "CUSTOM" .Values.cloudrock.saml2.federations }}
+            - name: cloudrock-saml2-idp-metadata
+              mountPath: /etc/cloudrock/saml2/metadata/idp_metadata.xml
+              subPath: idp_metadata.xml
+            {{ end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+{{ end }}
+      volumes:
+      - name: api-override
+        configMap:
+          name: api-override-config
+      - name: api-celery
+        configMap:
+          name: api-celery-config
+      - name: config-features-json
+        configMap:
+          name: metal-config-features-json
+      {{ if has "SAML2" .Values.cloudrock.authMethods }}
+      - name: cloudrock-saml2-certs
+        secret:
+          secretName: cloudrock-saml2-secret
+      - name: cloudrock-saml2-conf
+        configMap:
+          name: cloudrock-saml2-conf-config
+      {{ end }}
+      {{ if has "CUSTOM" .Values.cloudrock.saml2.federations }}
+      - name: cloudrock-saml2-idp-metadata
+        configMap:
+          name: cloudrock-idp-custom-metadata-config
+      {{ end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      restartPolicy: "Never"

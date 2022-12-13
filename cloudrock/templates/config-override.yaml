@@ -1,0 +1,618 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-override-config
+data:
+  override.conf.py: |-
+    #
+    # Configuration for Cloudrock plugins
+    #
+    # Django
+    #
+
+    import os
+
+    SECRET_KEY = os.environ.get('GLOBAL_SECRET_KEY')
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': os.environ.get('POSTGRESQL_NAME'),
+            'HOST': os.environ.get('POSTGRESQL_HOST'),
+            'PORT': os.environ.get('POSTGRESQL_PORT'),
+            'USER': os.environ.get('POSTGRESQL_USER'),
+            'PASSWORD': os.environ.get('POSTGRESQL_PASSWORD'),
+        },
+    }
+
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+            'LOCATION': 'cloudrock_cache',
+        }
+    }
+
+    CELERY_BROKER_URL = {{ include "cloudrock.rabbitmq.rmqUrl" . | quote }}
+
+    postgresql_host = os.environ.get('POSTGRESQL_HOST')
+    postgresql_port = os.environ.get('POSTGRESQL_PORT')
+    postgresql_user = os.environ.get('POSTGRESQL_USER')
+    postgresql_password = os.environ.get('POSTGRESQL_PASSWORD')
+    postgresql_name = 'celery_results'
+    CELERY_RESULT_BACKEND = f'db+postgresql://{postgresql_user}:{postgresql_password}@{postgresql_host}:{postgresql_port}/{postgresql_name}'
+
+    EMAIL_HOST = '{{ .Values.cloudrock.mail.host }}'
+
+    {{ if .Values.cloudrock.notificationSubject }}
+    CLOUDROCK_CORE['NOTIFICATION_SUBJECT'] = '{{ .Values.cloudrock.notificationSubject }}'
+    {{ end }}
+
+    {{ if .Values.cloudrock.timeZone }}
+    # Local time zone to use. See all at https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+    TIME_ZONE = '{{ .Values.cloudrock.timeZone }}'
+    {{ end }}
+
+    CLOUDROCK_CORE['AUTHENTICATION_METHODS'] = {{ .Values.cloudrock.authMethods | toJson }}
+    CLOUDROCK_CORE['CLOUDROCK_UI_URL'] = '{{ printf "%s://%s/" .Values.cloudrock-uiScheme .Values.cloudrock-uiHostname }}'
+
+    {{ if and (has "SOCIAL_SIGNUP" .Values.cloudrock.authMethods) (not (has "cloudrock_auth_social" .Values.cloudrock.disabledExtensions)) }}
+
+    {{ if has "SMARTIDEE" .Values.cloudrock.socialAuthMethods }}
+    CLOUDROCK_AUTH_SOCIAL.update({
+        'SMARTIDEE_SECRET': '{{ .Values.cloudrock.smartid.secret }}',
+        'SMARTIDEE_CLIENT_ID': '{{ .Values.cloudrock.smartid.clientId }}',
+    })
+    {{ end }}
+
+    {{ if has "TARA" .Values.cloudrock.socialAuthMethods }}
+    CLOUDROCK_AUTH_SOCIAL.update({
+        'TARA_SECRET': '{{ .Values.cloudrock.tara.secret }}',
+        'TARA_CLIENT_ID': '{{ .Values.cloudrock.tara.clientId }}',
+        'TARA_SANDBOX': False,
+        'TARA_MANAGEMENT_URL': '{{ .Values.cloudrock.tara.managementUrl }}',
+        'TARA_USER_PROTECTED_FIELDS': {{ .Values.cloudrock.tara.protectedFields | toJson }},
+    })
+    {{ end }}
+
+    {{ if has "KEYCLOAK" .Values.cloudrock.socialAuthMethods }}
+    CLOUDROCK_AUTH_SOCIAL.update({
+        'KEYCLOAK_AUTH_URL': '{{ .Values.cloudrock.keycloak.auth_url }}',
+        'KEYCLOAK_CLIENT_ID': '{{ .Values.cloudrock.keycloak.client_id }}',
+        'KEYCLOAK_LABEL': '{{ .Values.cloudrock.keycloak.label }}',
+        'KEYCLOAK_SECRET': '{{ .Values.cloudrock.keycloak.secret }}',
+        'KEYCLOAK_TOKEN_URL': '{{ .Values.cloudrock.keycloak.token_url }}',
+        'KEYCLOAK_USERINFO_URL': '{{ .Values.cloudrock.keycloak.userinfo_url }}',
+        'KEYCLOAK_MANAGEMENT_URL': '{{ .Values.cloudrock.keycloak.managementUrl }}',
+        'KEYCLOAK_USER_PROTECTED_FIELDS': {{ .Values.cloudrock.keycloak.protectedFields | toJson }},
+    })
+    {{ end }}
+
+    {{ if has "EDUTEAMS" .Values.cloudrock.socialAuthMethods }}
+    CLOUDROCK_AUTH_SOCIAL.update({
+        'EDUTEAMS_LABEL': '{{ .Values.cloudrock.eduteams.label }}',
+        'EDUTEAMS_CLIENT_ID': '{{ .Values.cloudrock.eduteams.clientId }}',
+        'EDUTEAMS_SECRET': '{{ .Values.cloudrock.eduteams.secret }}',
+        'EDUTEAMS_AUTH_URL': '{{ .Values.cloudrock.eduteams.authUrl }}',
+        'EDUTEAMS_TOKEN_URL': '{{ .Values.cloudrock.eduteams.tokenUrl }}',
+        'EDUTEAMS_USERINFO_URL': '{{ .Values.cloudrock.eduteams.userinfoUrl }}',
+        'EDUTEAMS_MANAGEMENT_URL': '{{ .Values.cloudrock.eduteams.managementUrl }}',
+        'EDUTEAMS_USER_PROTECTED_FIELDS': {{ .Values.cloudrock.eduteams.protectedFields | toJson }},
+        'REMOTE_EDUTEAMS_REFRESH_TOKEN': '{{ .Values.cloudrock.eduteams.remoteRefreshToken }}',
+        'REMOTE_EDUTEAMS_CLIENT_ID': '{{ .Values.cloudrock.eduteams.remoteClientID }}',
+        'REMOTE_EDUTEAMS_SECRET': '{{ .Values.cloudrock.eduteams.remoteSecret }}',
+        'REMOTE_EDUTEAMS_USERINFO_URL': '{{ .Values.cloudrock.eduteams.remoteUserinfoUrl }}',
+        'REMOTE_EDUTEAMS_TOKEN_URL': '{{ .Values.cloudrock.eduteams.remoteTokenUrl }}',
+        {{ if .Values.cloudrock.eduteams.enableSync }}
+        'ENABLE_EDUTEAMS_SYNC': True,
+        {{ end }}
+        {{ if and (.Values.cloudrock.eduteams.remoteClientID) (.Values.cloudrock.eduteams.remoteSecret) }}
+        'REMOTE_EDUTEAMS_ENABLED': True,
+        {{ end }}
+    })
+    {{ end }}
+
+    {{ end }}
+
+    {{ if has "LDAP" .Values.cloudrock.authMethods }}
+    #
+    # LDAP
+    #
+    import ldap
+    from django_auth_ldap.config import LDAPSearch, GroupOfNamesType
+
+    # LDAP authentication.
+    # See also: https://django-auth-ldap.readthedocs.io/en/latest/authentication.html
+    AUTHENTICATION_BACKENDS += (
+        'django_auth_ldap.backend.LDAPBackend',
+    )
+
+    AUTH_LDAP_SERVER_URI = '{{ .Values.cloudrock.ldap.host }}'
+
+    # Following variables are not used by django-auth-ldap,
+    # they are used as templates for other variables
+    AUTH_LDAP_BASE = '{{ .Values.cloudrock.ldap.baseDN }}'
+    AUTH_LDAP_USER_BASE = '{{ .Values.cloudrock.ldap.userDN }}'
+
+    # Format authenticating user's distinguished name using template
+    AUTH_LDAP_USER_DN_TEMPLATE = 'uid=%(user)s,' + AUTH_LDAP_USER_BASE
+
+    # Credentials for admin user
+    AUTH_LDAP_BIND_DN = 'uid={{ .Values.cloudrock.ldap.user }},' + AUTH_LDAP_USER_BASE
+    AUTH_LDAP_BIND_PASSWORD = '{{ .Values.cloudrock.ldap.password }}'
+
+    # Populate the Django user from the LDAP directory.
+    AUTH_LDAP_USER_ATTR_MAP = {
+        'full_name': 'displayName',
+        'email': 'mail'
+    }
+
+    # Set up the basic group parameters.
+    AUTH_LDAP_GROUP_BASE = "cn=groups," + AUTH_LDAP_BASE
+    AUTH_LDAP_GROUP_FILTER = "(objectClass=groupOfNames)"
+    AUTH_LDAP_GROUP_SEARCH = LDAPSearch(AUTH_LDAP_GROUP_BASE,
+        ldap.SCOPE_SUBTREE, AUTH_LDAP_GROUP_FILTER)
+    AUTH_LDAP_GROUP_TYPE = GroupOfNamesType(name_attr="cn")
+
+    AUTH_LDAP_USER_FLAGS_BY_GROUP = {
+        'is_staff': '{{ .Values.cloudrock.ldap.admins }},' + AUTH_LDAP_GROUP_BASE,
+        'is_support': '{{ .Values.cloudrock.ldap.support }},' + AUTH_LDAP_GROUP_BASE,
+    }
+    {{ end }}
+
+    #
+    # cloudrock-freeipa
+    #
+
+    {{ if and (has "freeipa" .Values.cloudrock.features) (not (has "cloudrock_freeipa" .Values.cloudrock.disabledExtensions)) }}
+    CLOUDROCK_FREEIPA.update({
+        'ENABLED': True,
+        'GROUPNAME_PREFIX': '{{ .Values.cloudrock.freeipa.groupnamePrefix }}',
+        'HOSTNAME': '{{ .Values.cloudrock.freeipa.hostname }}',
+        'PASSWORD': '{{ .Values.cloudrock.freeipa.password }}',
+        'USERNAME': '{{ .Values.cloudrock.freeipa.username }}',
+        'USERNAME_PREFIX': '{{ .Values.cloudrock.freeipa.usernamePrefix }}',
+        'VERIFY_SSL': {{ .Values.cloudrock.freeipa.verifySSL }},
+    })
+    {{ end }}
+
+    {{ if and (has "freeipa_group_synchronization_disabled" .Values.cloudrock.features) (not (has "cloudrock_freeipa" .Values.cloudrock.disabledExtensions)) }}
+    CLOUDROCK_FREEIPA.update({
+        'GROUP_SYNCHRONIZATION_ENABLED': False,
+    })
+    {{ end }}
+
+    {{ if and (has "VALIMO" .Values.cloudrock.authMethods) (not (has "cloudrock_auth_valimo" .Values.cloudrock.disabledExtensions)) }}
+    CLOUDROCK_AUTH_VALIMO.update({
+        'AP_ID': '{{ .Values.cloudrock.valimo.apId }}',
+        'AP_PWD': '{{ .Values.cloudrock.valimo.apPwd }}',
+        'DNSName': '{{ .Values.cloudrock.valimo.dnsname }}',
+        'cert_path': '/etc/cloudrock/valimo/valimo-client.crt',
+        'key_path': '/etc/cloudrock/valimo/valimo-client.key',
+        'URL': '{{ .Values.cloudrock.valimo.url }}',
+        'SignatureProfile': '{{ .Values.cloudrock.valimo.signatureProfile }}',
+    {{ if .Values.cloudrock.valimo.label }}
+        'LABEL': '{{ .Values.cloudrock.valimo.label }}',
+    {{ end }}
+    {{ if .Values.cloudrock.valimo.mobilePrefix }}
+        'MOBILE_PREFIX': '{{ .Values.cloudrock.valimo.mobilePrefix }}',
+    {{ end }}
+        'USER_MANAGEMENT_URL': '{{ .Values.cloudrock.valimo.managementUrl }}',
+        'USER_PROTECTED_FIELDS': {{ .Values.cloudrock.valimo.protectedFields | toJson }},
+    })
+    {{ end }}
+
+    #
+    # cloudrock-core
+    # https://cloudrock.atlassian.net/wiki/display/WD/Metal+configuration#Metalconfiguration-Additionalsettings
+
+    {{ if .Values.cloudrock.currencyName }}
+    CLOUDROCK_CORE['CURRENCY_NAME'] = '{{ .Values.cloudrock.currencyName }}'
+    {{ end }}
+
+    CLOUDROCK_CORE['SITE_NAME'] = '{{ .Values.cloudrock.site.name }}'
+
+    {{ if .Values.cloudrock.site.logo }}
+    CLOUDROCK_CORE['SITE_LOGO'] = '/etc/cloudrock/logo.png'
+    {{ end }}
+
+    {{ if .Values.cloudrock.whitelabeling.modePageTitle }}
+    CLOUDROCK_CORE["FULL_PAGE_TITLE"] = {{ .Values.cloudrock.whitelabeling.modePageTitle | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.whitelabeling.shortPageTitle }}
+    CLOUDROCK_CORE["SHORT_PAGE_TITLE"] = {{ .Values.cloudrock.whitelabeling.shortPageTitle | quote }}
+    {{ end }}
+
+    {{ if has "owner_can_manage_customer" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['OWNER_CAN_MANAGE_CUSTOMER'] = True
+    {{ end }}
+
+    {{ if has "owner_can_register_service_provider" .Values.cloudrock.features }}
+    CLOUDROCK_MARKETPLACE['OWNER_CAN_REGISTER_SERVICE_PROVIDER'] = True
+    {{ end }}
+
+    {{ if has "owners_can_manage_owners" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['OWNERS_CAN_MANAGE_OWNERS'] = True
+    {{ end }}
+
+    {{ if .Values.cloudrock.cloudrock-ui.userMandatoryFields }}
+    CLOUDROCK_CORE["USER_MANDATORY_FIELDS"] = {{ .Values.cloudrock.cloudrock-ui.userMandatoryFields | toJson }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.cloudrock-ui.userRegistrationHiddenFields }}
+    CLOUDROCK_CORE["USER_REGISTRATION_HIDDEN_FIELDS"] = {{ .Values.cloudrock.cloudrock-ui.userRegistrationHiddenFields | toJson }}
+    {{ end }}
+
+    {{ if has "only_staff_manages_services" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['ONLY_STAFF_MANAGES_SERVICES'] = True
+    CLOUDROCK_MARKETPLACE['OWNER_CAN_APPROVE_ORDER'] = False
+    CLOUDROCK_MARKETPLACE['MANAGER_CAN_APPROVE_ORDER'] = False
+    CLOUDROCK_MARKETPLACE['ADMIN_CAN_APPROVE_ORDER'] = False
+    {{ end }}
+
+    {{ if has "manager_can_approve_order" .Values.cloudrock.features }}
+    CLOUDROCK_MARKETPLACE['MANAGER_CAN_APPROVE_ORDER'] = True
+    {{ if not (has "cloudrock_openstack.openstack" .Values.cloudrock.disabledExtensions) }}
+    CLOUDROCK_OPENSTACK['MANAGER_CAN_MANAGE_TENANTS'] = True
+    {{ end }}
+    {{ end }}
+
+    {{ if has "admin_can_approve_order" .Values.cloudrock.features }}
+    CLOUDROCK_MARKETPLACE['ADMIN_CAN_APPROVE_ORDER'] = True
+    {{ if not (has "cloudrock_openstack.openstack" .Values.cloudrock.disabledExtensions) }}
+    CLOUDROCK_OPENSTACK['ADMIN_CAN_MANAGE_TENANTS'] = True
+    {{ end }}
+    {{ end }}
+
+    {{ if has "create_default_project_on_organization_creation" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['CREATE_DEFAULT_PROJECT_ON_ORGANIZATION_CREATION'] = True
+    {{ end }}
+
+    # Disable geoip location till Cloudrock UI releases maps to a stable deployment
+    CLOUDROCK_CORE['ENABLE_GEOIP'] = False
+
+    {{ if .Values.cloudrock.site.address }}
+    CLOUDROCK_CORE['SITE_ADDRESS'] = '{{ .Values.cloudrock.site.address }}'
+    {{ end }}
+
+    {{ if .Values.cloudrock.site.email }}
+    CLOUDROCK_CORE['SITE_EMAIL'] = '{{ .Values.cloudrock.site.email }}'
+    {{ end }}
+
+    {{ if .Values.cloudrock.site.phone }}
+    CLOUDROCK_CORE['SITE_PHONE'] = '{{ .Values.cloudrock.site.phone }}'
+    {{ end }}
+
+    {{ if has "only_staff_can_invite_users" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['ONLY_STAFF_CAN_INVITE_USERS'] = True
+    {{ end }}
+
+    {{ if has "invitation_create_missing_users" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['INVITATION_CREATE_MISSING_USER'] = True
+    {{ end }}
+
+    {{ if has "invitation_disable_multiple_roles" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['INVITATION_DISABLE_MULTIPLE_ROLES'] = True
+    {{ end }}
+
+    {{ if has "protect_freeipa_user_details" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['PROTECT_USER_DETAILS_FOR_REGISTRATION_METHODS'] = ['FREEIPA']
+    {{ end }}
+
+    {{ if has "enable_accounting_start_date" .Values.cloudrock.features }}
+    CLOUDROCK_CORE['ENABLE_ACCOUNTING_START_DATE'] = True
+    {{ end }}
+
+    {{ if .Values.cloudrock.cloudrock-ui.googleAnalyticsID }}
+    CLOUDROCK_CORE['GOOGLE_ANALYTICS_ID'] = {{ .Values.cloudrock.cloudrock-ui.googleAnalyticsID | quote }}
+    {{ end }}
+
+    {{ if has "marketplace" .Values.cloudrock.features }}
+    #
+    # cloudrock-marketplace
+    #
+
+    {{ if has "disable_resource_end_date" .Values.cloudrock.features }}
+    CLOUDROCK_MARKETPLACE['ENABLE_RESOURCE_END_DATE'] = False
+    {{ end }}
+
+    {{ if .Values.cloudrock.marketplace.notify_staff }}
+    CLOUDROCK_MARKETPLACE['NOTIFY_STAFF_ABOUT_APPROVALS'] = True
+    {{ end }}
+
+    {{ if .Values.cloudrock.marketplace.script.enabled }}
+    CLOUDROCK_MARKETPLACE_SCRIPT['SCRIPT_RUN_MODE'] = 'k8s'
+    CLOUDROCK_MARKETPLACE_SCRIPT['K8S_CONFIG_PATH'] = '/etc/cloudrock/kubeconfig'
+    {{ if .Values.cloudrock.marketplace.script.k8sNamespace }}
+    CLOUDROCK_MARKETPLACE_SCRIPT['K8S_NAMESPACE'] = "{{ .Values.cloudrock.marketplace.script.k8sNamespace }}"
+    {{ end }}
+    {{ if .Values.cloudrock.marketplace.script.dockerImages }}
+    CLOUDROCK_MARKETPLACE_SCRIPT['DOCKER_IMAGES'] = {{ .Values.cloudrock.marketplace.script.dockerImages | toJson }}
+    {{ end }}
+    {{ if .Values.cloudrock.marketplace.script.jobTimeout }}
+    CLOUDROCK_MARKETPLACE_SCRIPT['K8S_JOB_TIMEOUT'] = {{ .Values.cloudrock.marketplace.script.jobTimeout }}
+    {{ end }}
+    {{ end }}
+
+    {{ if has "cloudrock_marketplace_notify_about_resource_change_disabled" .Values.cloudrock.features }}
+    CLOUDROCK_MARKETPLACE['NOTIFY_ABOUT_RESOURCE_CHANGE'] = False
+    {{ end }}
+
+    {{ end }}
+    #
+    # cloudrock-metal
+    #
+    {{ if has "billing" .Values.cloudrock.features }}
+    CLOUDROCK_INVOICES['ISSUER_DETAILS'].update({
+        'company': '{{ .Values.cloudrock.invoice.company }}',
+        'address': '{{ .Values.cloudrock.invoice.address }}',
+        'country': '{{ .Values.cloudrock.invoice.country }}',
+        'email': '{{ .Values.cloudrock.invoice.email }}',
+        'postal': '{{ .Values.cloudrock.invoice.postalCode }}',
+        'phone': {
+            'country_code': '{{ .Values.cloudrock.invoice.phoneCountryCode }}',
+            'national_number': '{{ .Values.cloudrock.invoice.phoneNationalNumber }}',
+        },
+        'bank': '{{ .Values.cloudrock.invoice.bank }}',
+        'account': '{{ .Values.cloudrock.invoice.bankAccount }}',
+        'vat_code': '{{ .Values.cloudrock.invoice.vatCode }}',
+    })
+    {{ end }}
+
+    {{ if has "send_customer_invoices" .Values.cloudrock.features }}
+    CLOUDROCK_INVOICES['SEND_CUSTOMER_INVOICES'] = True
+    {{ end }}
+
+    {{ if .Values.cloudrock.paymentInterval }}
+    CLOUDROCK_INVOICES['PAYMENT_INTERVAL'] = {{ .Values.cloudrock.invoice.paymentInterval }}
+    {{ end }}
+
+    {{ if has "slurm" .Values.cloudrock.features }}
+    # See also http://docs.cloudrock.ca/SLURM+plugin+configuration
+    CLOUDROCK_SLURM.update({
+        'ENABLED': True,
+        'CUSTOMER_PREFIX': '{{ .Values.cloudrock.slurm.customerPrefix }}',
+        'PROJECT_PREFIX': '{{ .Values.cloudrock.slurm.projectPrefix }}',
+        'ALLOCATION_PREFIX': '{{ .Values.cloudrock.slurm.allocationPrefix }}',
+    })
+    {{ if .Values.cloudrock.ssh_private_key_path }}
+    CLOUDROCK_SLURM['PRIVATE_KEY_PATH'] = '/var/lib/cloudrock/id_rsa'
+    {{ end }}
+    {{ end }}
+
+    {{ if and (has "support_basic" .Values.cloudrock.features) (not (has "cloudrock_support" .Values.cloudrock.disabledExtensions)) }}
+    CLOUDROCK_SUPPORT.update({
+    {{ if .Values.cloudrock.support.customBackend }}
+        'ACTIVE_BACKEND': '{{ .Values.cloudrock.support.customBackend }}',
+    {{ else }}
+        'ACTIVE_BACKEND': 'cloudrock_metal.support.backend.basic:BasicBackend',
+        'ENABLED': True,
+    {{ end }}
+    })
+    {{ end }}
+
+    {{ if not (has "cloudrock_support" .Values.cloudrock.disabledExtensions) }}
+    {{ if has "support" .Values.cloudrock.features }}
+    CLOUDROCK_SUPPORT.update({
+        'ACTIVE_BACKEND': 'cloudrock_metal.support.backend.atlassian:ServiceDeskBackend',
+        'ENABLED': True,
+    })
+    {{ if has "support_legacy" .Values.cloudrock.features }}
+    CLOUDROCK_SUPPORT['USE_OLD_API'] = True
+    {{ end }}
+    CLOUDROCK_SUPPORT['CREDENTIALS'].update({
+    {{ if .Values.cloudrock.support.servicedeskToken }}
+        'email': '{{ .Values.cloudrock.support.servicedeskEmail }}',
+        'token': '{{ .Values.cloudrock.support.servicedeskToken }}',
+    {{ else }}
+        'username': '{{ .Values.cloudrock.support.servicedeskUsername}}',
+        'password': '{{ .Values.cloudrock.support.servicedeskPassword }}',
+    {{ end }}
+        'server': '{{ .Values.cloudrock.support.servicedeskUrl }}',
+    })
+    CLOUDROCK_SUPPORT['ISSUE'].update({
+        'caller_field': 'Request participants',
+    {{ if .Values.cloudrock.support.organizationField }}
+        'organisation_field': '{{ .Values.cloudrock.support.organizationField }}',
+    {{ end }}
+    })
+    CLOUDROCK_SUPPORT['PROJECT'].update({
+        'key': '{{ .Values.cloudrock.support.projectKey }}',
+    })
+
+    {{ else }}
+    CLOUDROCK_SUPPORT.update({
+        'ENABLED': False,
+    })
+    {{ end }}
+    {{ end }}
+
+    #
+    # cloudrock-openstack
+    #
+    {{ if not (has "cloudrock_openstack.openstack" .Values.cloudrock.disabledExtensions) }}
+    {{ if has "show_openstack_credentials" .Values.cloudrock.features }}
+    CLOUDROCK_OPENSTACK.update({
+        'TENANT_CREDENTIALS_VISIBLE': True,  # enable display of OpenStack credentials to users
+    })
+    {{ else }}
+    CLOUDROCK_OPENSTACK.update({
+        'TENANT_CREDENTIALS_VISIBLE': False,  # disable display of OpenStack credentials to users
+    })
+    {{ end }}
+    {{ end }}
+
+    {{ if has "allow_direct_external_network_connection" .Values.cloudrock.features }}
+    CLOUDROCK_OPENSTACK_TENANT.update({
+        'ALLOW_DIRECT_EXTERNAL_NETWORK_CONNECTION': True,
+    })
+    {{ end }}
+
+    {{ if and (has "show_openstack_console" .Values.cloudrock.features) (not (has "cloudrock_openstack.openstack_tenant" .Values.cloudrock.disabledExtensions)) }}
+    CLOUDROCK_OPENSTACK_TENANT.update({
+        'ALLOW_CUSTOMER_USERS_OPENSTACK_CONSOLE_ACCESS': True,
+    })
+    {{ end }}
+
+    {{ if and (has "disable_openstack_private_offering_creation" .Values.cloudrock.features) (not (has "cloudrock_metal.marketplace_openstack" .Values.cloudrock.disabledExtensions)) }}
+    CLOUDROCK_MARKETPLACE_OPENSTACK.update({
+        'AUTOMATICALLY_CREATE_PRIVATE_OFFERING': False,
+    })
+    {{ end }}
+
+    {{ if and (has "paypal" .Values.cloudrock.features) (not (has "cloudrock_paypal" .Values.cloudrock.disabledExtensions)) }}
+    #
+    # cloudrock-paypal
+    #
+
+    # See also http://docs.cloudrock.ca/PayPal+plugin+configuration
+    CLOUDROCK_PAYPAL.update({
+        'ENABLED': True,
+        'BACKEND': {
+            'mode': 'live',
+            'client_id': '{{ .Values.cloudrock.paypal.clientId }}',
+            'client_secret': '{{ .Values.cloudrock.paypal.secret }}',
+            'currency_name': 'EUR',
+        }
+    })
+    {{ end }}
+
+    {{ if .Values.cloudrock.mail.from }}
+    DEFAULT_FROM_EMAIL = '{{ .Values.cloudrock.mail.from }}'
+    {{ end }}
+
+    {{ if .Values.cloudrock.mail.replyTo }}
+    DEFAULT_REPLY_TO_EMAIL = '{{ .Values.cloudrock.mail.replyTo }}'
+    {{ end }}
+
+    {{ if .Values.cloudrock.languageChoices }}
+    LANGUAGES = (
+        ('en', 'English'),
+    {{ if has "et" .Values.cloudrock.languageChoices }}
+        ('et', 'Eesti'),
+    {{ end }}
+    {{ if has "lt" .Values.cloudrock.languageChoices }}
+        ('lt', 'Lietuvių'),
+    {{ end }}
+    {{ if has "lv" .Values.cloudrock.languageChoices }}
+        ('lv', 'Latviešu'),
+    {{ end }}
+    {{ if has "ru" .Values.cloudrock.languageChoices }}
+        ('ru', 'Русский'),
+    {{ end }}
+    {{ if has "it" .Values.cloudrock.languageChoices }}
+        ('it', 'Italiano'),
+    {{ end }}
+    {{ if has "de" .Values.cloudrock.languageChoices }}
+        ('de', 'Deutsch'),
+    {{ end }}
+    {{ if has "da" .Values.cloudrock.languageChoices }}
+        ('da', 'Dansk'),
+    {{ end }}
+    {{ if has "sv" .Values.cloudrock.languageChoices }}
+        ('sv', 'Svenska'),
+    {{ end }}
+    {{ if has "es" .Values.cloudrock.languageChoices }}
+        ('es', 'Español'),
+    {{ end }}
+    {{ if has "fr" .Values.cloudrock.languageChoices }}
+        ('fr', 'Français'),
+    {{ end }}
+    {{ if has "nb" .Values.cloudrock.languageChoices }}
+        ('nb', 'Norsk (bokmål)'),
+    {{ end }}
+    )
+    {{ end }}
+
+
+    {{ if has "pid_datacite" .Values.cloudrock.features }}
+    CLOUDROCK_PID['DATACITE'].update({
+        'REPOSITORY_ID': '{{ .Values.cloudrock.pid_datacite.repository_id }}',
+        'PASSWORD': '{{ .Values.cloudrock.pid_datacite.password }}',
+        'PREFIX': '{{ .Values.cloudrock.pid_datacite.prefix }}',
+        'API_URL': '{{ .Values.cloudrock.pid_datacite.url }}',
+        'PUBLISHER': '{{ .Values.cloudrock.pid_datacite.publisher }}',
+        'COLLECTION_DOI': '{{ .Values.cloudrock.pid_datacite.collection_doi }}',
+    })
+    {{ end }}
+
+    {{ if has "academic_domain" .Values.cloudrock.features }}
+    CLOUDROCK_CORE["TRANSLATION_DOMAIN"] = "academic"
+    {{ end }}
+
+    {{ if has "academic_shared_domain" .Values.cloudrock.features }}
+    CLOUDROCK_CORE["TRANSLATION_DOMAIN"] = "academic_shared"
+    {{ end }}
+
+    {{ if .Values.cloudrock.defaultLanguage }}
+    LANGUAGE_CODE = {{ .Values.cloudrock.defaultLanguage | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.cloudrock-ui.docsLink }}
+    CLOUDROCK_CORE['DOCS_URL'] = {{ .Values.cloudrock.cloudrock-ui.docsLink | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.cloudrock-ui.invitationCivilCodeHelpText }}
+    CLOUDROCK_CORE["INVITATION_CIVIL_CODE_HELP_TEXT"] = {{ .Values.cloudrock.cloudrock-ui.invitationCivilCodeHelpText | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.sentryDSN }}
+    CLOUDROCK_CORE["CLOUDROCK_UI_SENTRY_DSN"] = {{ .Values.cloudrock.sentryDSN | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.whitelabeling.sidebarLogoPath }}
+    CLOUDROCK_CORE["SIDEBAR_LOGO"] = "images/sidebar_logo.png"
+    {{ end }}
+
+    {{ if .Values.cloudrock.whitelabeling.poweredByLogoPath }}
+    CLOUDROCK_CORE["POWERED_BY_LOGO"] = "images/poweredby_logo.png"
+    {{ end }}
+
+    {{ if .Values.cloudrock.whitelabeling.brandColor }}
+    CLOUDROCK_CORE["BRAND_COLOR"] = {{ .Values.cloudrock.whitelabeling.brandColor | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.whitelabeling.heroImagePath }}
+    CLOUDROCK_CORE["HERO_IMAGE"] = "images/hero_image.jpg"
+    {{ end }}
+
+    {{ if .Values.cloudrock.whitelabeling.heroLinkLabel }}
+    CLOUDROCK_CORE["HERO_LINK_LABEL"] = {{ .Values.cloudrock.whitelabeling.heroLinkLabel | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.whitelabeling.heroLinkUrl }}
+    CLOUDROCK_CORE["HERO_LINK_URL"] = {{ .Values.cloudrock.whitelabeling.heroLinkUrl | quote }}
+    {{ end }}
+
+    CLOUDROCK_CORE.update({
+        'LOCAL_IDP_NAME': '{{ .Values.cloudrock.localIdp.name }}',
+        'LOCAL_IDP_LABEL': '{{ .Values.cloudrock.localIdp.label }}',
+        'LOCAL_IDP_MANAGEMENT_URL': '{{ .Values.cloudrock.localIdp.managementUrl }}',
+        'LOCAL_IDP_PROTECTED_FIELDS': {{ .Values.cloudrock.localIdp.protectedFields | toJson }},
+    })
+
+    {{ if .Values.cloudrock.whitelabeling.siteDescription }}
+    CLOUDROCK_CORE["SITE_DESCRIPTION"] = {{ .Values.cloudrock.whitelabeling.siteDescription | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.metalUrl }}
+    CLOUDROCK_CORE["METAL_URL"] = {{ .Values.cloudrock.metalUrl | quote }}
+    {{ end }}
+
+    {{ if .Values.cloudrock.support.skipVerify }}
+    CLOUDROCK_JIRA.update(
+        {
+            'VERIFY_SSL': False
+        }
+    )
+    {{ end }}
+
+    {{ if .Values.cloudrock.keycloak_sync.enabled }}
+    CLOUDROCK_KEYCLOAK['ENABLED'] = True
+    CLOUDROCK_KEYCLOAK['BASE_URL'] = {{ .Values.cloudrock.keycloak_sync.base_url | quote }}
+    CLOUDROCK_KEYCLOAK['REALM'] = {{ .Values.cloudrock.keycloak_sync.realm | quote }}
+    CLOUDROCK_KEYCLOAK['CLIENT_ID'] = {{ .Values.cloudrock.keycloak_sync.client_id | quote }}
+    CLOUDROCK_KEYCLOAK['CLIENT_SECRET'] = {{ .Values.cloudrock.keycloak_sync.client_secret | quote }}
+    CLOUDROCK_KEYCLOAK['USERNAME'] = {{ .Values.cloudrock.keycloak_sync.username | quote }}
+    CLOUDROCK_KEYCLOAK['PASSWORD'] = {{ .Values.cloudrock.keycloak_sync.password | quote }}
+    {{ end }}
