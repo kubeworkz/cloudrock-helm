@@ -6,7 +6,7 @@ Outline:
 - [TLS](tls-config.md)
 - [White-labeling](whitelabeling.md)
 - [Custom Metal templates](metal-templates.md)
-- [Bootstraping](bootstrap.md)
+- [Bootstrapping](bootstrap.md)
 - [SAML2](saml2.md)
 - [HPA](hpa.md)
 - [Stress testing](locust.md)
