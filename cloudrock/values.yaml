@@ -175,6 +175,7 @@ cloudrock:
     groupnamePrefix: ""
     usernamePrefix: ""
   valimo:
+    dir: "cloudrock_valimo"  
     apId: ""
     apPwd: ""
     dnsname: ""

@@ -13,9 +13,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 apiScheme: "http"
-cloudrock-uiScheme: "http"
+cloudrockUIScheme: "http"
 apiHostname: cloudrock.local
-cloudrock-uiHostname: cloudrock.local
+cloudrockUIHostname: cloudrock.local
 
 affinity: {}
 
@@ -62,7 +62,8 @@ ingress:
   tls:
     source: "secret" # Possible values: `letsEncrypt` and `secret`
     secretsDir: "tls"  # Enabled only if source == `secret`
-  whitelistSourceRange: '' # E.g. '192.168.22.0/24'
+  whitelistSourceRange: '127.0.0.0/24' # E.g. '192.168.22.0/24'
+  whitelistSourceRangeAdmin: '127.0.0.1/32'
 
 celery:
   worker:
@@ -111,6 +112,7 @@ cloudrock:
     - LDAP
     - SAML2
     - SOCIAL_SIGNUP
+    - VALIMO
   socialAuthMethods:
     - SMARTIDEE
     - TARA
@@ -160,7 +162,7 @@ cloudrock:
     host: "ldap://ipa.address"
     baseDN: "cn=accounts,dc=demo1,dc=freeipa,dc=org"
     userDN: "cn=users,cn=accounts,dc=demo1,dc=freeipa,dc=org"
-    user: "wladur"
+    user: "cloudrock"
     password: "ldap-secret"
     admins: "cn=admins,"
     support: "cn=support,"
@@ -172,6 +174,7 @@ cloudrock:
     groupnamePrefix: "pref_"
     usernamePrefix: "pref_"
   valimo:
+    dir: "test/cloudrock_valimo"
     apId: ""
     apPwd: ""
     dnsname: ""
@@ -246,19 +249,19 @@ cloudrock:
     privacyHtmlPath: "test/files/privacy.html"
     siteDescription: "Cloudrock Helm Test"
   metalTemplating:
-    metalTemplatesPath: "metal_templates"
+    metalTemplatesPath: "metal_templates/metal-templates.yaml"
   saml2:
     dir: "test/cloudrock_saml2"
     federations:
       - CUSTOM
   ssh_public_key_path: "test/ssh/id_rsa"
   ssh_private_key_path: "test/ssh/id_rsa.pub"
-  cloudrock-ui:
+  cloudrockUI:
     imageName: "kubeworkz/cloudrock-ui"
     googleAnalyticsID: ""
     userMandatoryFields: {}
     userRegistrationHiddenFields: {}
-    docsLink: "https://docs.cloudrock.ca"
+    docsLink: "https://docs.cloudrock.com"
     invitationCivilCodeHelpText: ""
   metricsExporter:
     enabled: true
@@ -301,11 +304,11 @@ rabbitmq:
   ## hostname of rabbitmq service
   host: "rmq-rabbitmq" ## See docs/service-endpoint.md for details.
   customManagementPort:
-  customAMQPPort:
+  customAMQPPort:docker/o
 
 stressTesting:
   enabled: false
   locustFilePath: "locust_task/locust_test.py"
 
 global:
-  imageRegistry: "registry.hpc.ut.ee/mirror"
+  imageRegistry: "docker.io"

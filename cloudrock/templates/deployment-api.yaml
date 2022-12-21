@@ -76,7 +76,7 @@ spec:
                 fieldPath: metadata.namespace
           {{ end }}
           {{ if .Values.cloudrock.disabledExtensions }}
-          - name: CLOUDROCK_DISABLED_EXTENSIONS
+          - name: WALDUR_DISABLED_EXTENSIONS
             value: {{ .Values.cloudrock.disabledExtensions | toJson | quote }}
           {{ end }}
           resources:
@@ -98,20 +98,16 @@ spec:
             - name: logging-override
               mountPath: /etc/cloudrock/uwsgi.ini
               subPath: uwsgi.ini
-            {{ $templatesPath := .Values.cloudrock.metalTemplating.metalTemplatesPath }}
-            {{ $templatesRoot := $templatesPath | printf "%s/"}}
-            {{ $templatesPathPattern := $templatesPath | printf "%s/**" }}
-            {{ range $path, $_ := .Files.Glob $templatesPathPattern }}
-            - name: cloudrock-metal-template
-              mountPath: {{ $path | replace $templatesRoot "" | printf "/usr/src/cloudrock/src/%s" }}
-              subPath: {{ $path | base }}
-            {{ end }}
             {{ if has "SAML2" .Values.cloudrock.authMethods }}
             - name: cloudrock-saml2-certs
               mountPath: /etc/cloudrock/saml2/credentials
             - name: cloudrock-saml2-conf
               mountPath: /etc/cloudrock/saml2.conf.py
               subPath: saml2.conf.py
+            {{ end }}
+            {{ if has "VALIMO" .Values.cloudrock.authMethods }}
+            - name: cloudrock-valimo-certs
+              mountPath: /etc/cloudrock/valimo
             {{ end }}
             {{ if .Values.cloudrock.ssh_public_key_path }}
             - name: cloudrock-ssh-pub-key
@@ -130,9 +126,6 @@ spec:
       - name: api-celery
         configMap:
           name: api-celery-config
-      - name: cloudrock-metal-template
-        configMap:
-          name: metal-template-config
       - name: logging-override
         configMap:
           name: metal-logging-override-config
@@ -148,6 +141,11 @@ spec:
       - name: cloudrock-saml2-conf
         configMap:
           name: cloudrock-saml2-conf-config
+      {{ end }}
+      {{ if has "VALIMO" .Values.cloudrock.authMethods }}
+      - name: cloudrock-valimo-certs
+        secret:
+          secretName: cloudrock-valimo-secret
       {{ end }}
       {{ if .Values.cloudrock.ssh_public_key_path }}
       - name: cloudrock-ssh-pub-key
