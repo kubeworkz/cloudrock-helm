@@ -76,7 +76,7 @@ spec:
                 fieldPath: metadata.namespace
           {{ end }}
           {{ if .Values.cloudrock.disabledExtensions }}
-          - name: WALDUR_DISABLED_EXTENSIONS
+          - name: CLOUDROCK_DISABLED_EXTENSIONS
             value: {{ .Values.cloudrock.disabledExtensions | toJson | quote }}
           {{ end }}
           resources:

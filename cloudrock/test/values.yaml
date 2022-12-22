@@ -13,9 +13,9 @@ nameOverride: ""
 fullnameOverride: ""
 
 apiScheme: "http"
-cloudrockUIScheme: "http"
+cloudrock-uiScheme: "http"
 apiHostname: cloudrock.local
-cloudrockUIHostname: cloudrock.local
+cloudrock-uiHostname: cloudrock.local
 
 affinity: {}
 
@@ -256,7 +256,7 @@ cloudrock:
       - CUSTOM
   ssh_public_key_path: "test/ssh/id_rsa"
   ssh_private_key_path: "test/ssh/id_rsa.pub"
-  cloudrockUI:
+  cloudrock-ui:
     imageName: "kubeworkz/cloudrock-ui"
     googleAnalyticsID: ""
     userMandatoryFields: {}
