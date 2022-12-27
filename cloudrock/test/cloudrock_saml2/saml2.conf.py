@@ -4,36 +4,33 @@ import saml2
 # wiki: http://docs.cloudrock.ca/Identityproviders
 CLOUDROCK_AUTH_SAML2.update({
     # used for assigning the registration method to the user
-    'name': 'saml2',
+    'NAME': 'saml2',
     # full path to the xmlsec1 binary program
-    'xmlsec_binary': '/usr/bin/xmlsec1',
-    # required for assertion consumer, single logout services and entity ID
-    'base_url': 'https://cloudrock.example.com',
+    'XMLSEC_BINARY': '/usr/bin/xmlsec1',    # set to True to output debugging information
     # set to True to output debugging information
-    'debug': True,
+    'DEBUG': True,
     # IdPs metadata XML files stored locally
-    'idp_metadata_local': [
+    'IDP_METADATA_LOCAL': [
         '/etc/cloudrock/saml2/metadata/edugain_metadata.xml',
     ],
     # IdPs metadata XML files stored remotely
-    'idp_metadata_remote':
+    'IDP_METADATA_REMOTE':
     [
     ],
     # logging
     # empty to disable logging SAML2-related stuff to file
-    'log_file': '',
-    'log_level': 'DEBUG',
+    'LOG_FILE': '',
+    'LOG_LEVEL': 'DEBUG',
     # Indicates if the entity will sign the logout requests
-    'logout_requests_signed': 'true',
+    'LOGOUT_REQUESTS_SIGNED': 'true',
     # Indicates if the authentication requests sent should be signed by default
-    'authn_requests_signed': 'true',
+    'AUTHN_REQUESTS_SIGNED': 'true',
     # PEM formatted certificate chain file
-    'cert_file': '/etc/cloudrock/saml2/credentials/sp.crt',
+    'CERT_FILE': '/etc/cloudrock/saml2/credentials/sp.crt',
     # PEM formatted certificate key file -- a private copy of the file inside docker image
-    'key_file': '/etc/cloudrock/saml2/credentials/sp.pem',
-    'signature_algorithm': 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256',
+    'KEY_FILE': '/etc/cloudrock/saml2/credentials/sp.pem',
     # SAML attributes that are required to identify a user
-    'required_attributes': [
+    'REQUIRED_ATTRIBUTES': [
         'cn',
         'givenName',
         'surname',
@@ -42,11 +39,11 @@ CLOUDROCK_AUTH_SAML2.update({
         'eduPersonPrincipalName',
     ],
     # SAML attributes that may be useful to have but not required
-    'optional_attributes': [
+    'OPTIONAL_ATTRIBUTES': [
         'schacHomeOrganization', 'preferredLanguage', 'eduPersonScopedAffiliation'
     ],
     # mapping between SAML attributes and User fields
-    'saml_attribute_mapping': {
+    'SAML_ATTRIBUTE_MAPPING': {
         'eduPersonPrincipalName': ['username'],
         'schacPersonalUniqueID': ['civil_number'],
         'cn': ['full_name'],
@@ -59,40 +56,40 @@ CLOUDROCK_AUTH_SAML2.update({
     },
     # organization responsible for the service
     # you can set multilanguage information here
-    'organization': {
+    'ORGANIZATION': {
         'name': [('Example', 'et'), ('Example', 'en'), ('Example', 'lt')],
         'display_name': [('Example', 'et'), ('Example', 'en'), ('Example', 'lt'),],
         'url': [('https://cloudrock.example.com/', 'et'), ('https://cloudrock.example.com/', 'en'), ('https://cloudrock.example.com/', 'lt')],
     },
 
     # eduGAIN CoCo settings
-    'privacy_statement_url': 'https://cloudrock.example.com/views/policy/privacy-full.html',
-    'display_name': 'Example Self-Service',
-    'description': 'Self-service for users of Example',
+    'PRIVACY_STATEMENT_URL': 'https://cloudrock.example.com/views/policy/privacy-full.html',
+    'DISPLAY_NAME': 'Example Self-Service',
+    'DESCRIPTION': 'Self-service for users of Example',
 
     # mdpi attributes
-    'registration_policy': 'http://reg.example.com/main/wp-content/uploads/Federation_Policy_1.3.pdf',
-    'registration_authority': 'http://reg.example.com',
-    'registration_instant': datetime.datetime(2017, 1, 1).isoformat(),
-  'IDENTITY_PROVIDER_LABEL': 'CLOUDROCK',
+    'REGISTRATION_POLICY': 'http://reg.example.com/main/wp-content/uploads/Federation_Policy_1.3.pdf',
+    'REGISTRATION_AUTHORITY': 'http://reg.example.com',
+    'REGISTRATION_INSTANT': datetime.datetime(2017, 1, 1).isoformat(),
+    'IDENTITY_PROVIDER_LABEL': 'CLOUDROCK',
 })
 
-SAML_ATTRIBUTE_MAPPING = CLOUDROCK_AUTH_SAML2['saml_attribute_mapping']
+SAML_ATTRIBUTE_MAPPING = CLOUDROCK_AUTH_SAML2['SAML_ATTRIBUTE_MAPPING']
 
 SAML_CONFIG.update({
-    'xmlsec_binary': CLOUDROCK_AUTH_SAML2['xmlsec_binary'],
-    'entityid': CLOUDROCK_AUTH_SAML2['base_url'] + '/' + '/api-auth/saml2/metadata/',
-    'attribute_map_dir': CLOUDROCK_AUTH_SAML2['attribute_map_dir'],
-    'name': CLOUDROCK_AUTH_SAML2['display_name'],
+    'xmlsec_binary': CLOUDROCK_AUTH_SAML2['XMLSEX_BINARY'],
+    'entityid': CLOUDROCK_CORE['METAL_URL'] + '/api-auth/saml2/metadata/',
+    'attribute_map_dir': CLOUDROCK_AUTH_SAML2['ATTRIBUTE_MAP_DIR'],
+    'name': CLOUDROCK_AUTH_SAML2['DISPLAY_NAME'],
     'extensions': {
         'mdrpi': {
             'RegistrationInfo': {
                 'registration_policy': {
                     'lang': 'en',
-                    'text': CLOUDROCK_AUTH_SAML2['registration_policy'],
+                    'text': CLOUDROCK_AUTH_SAML2['REGISTRATION_POLICY'],
                 },
-                'registrationAuthority': CLOUDROCK_AUTH_SAML2['registration_authority'],
-                'registrationInstant': CLOUDROCK_AUTH_SAML2['registration_instant'],
+                'registrationAuthority': CLOUDROCK_AUTH_SAML2['REGISTRATION_AUTHORITY'],
+                'registrationInstant': CLOUDROCK_AUTH_SAML2['REGISTRATION_INSTANT'],
             },
         },
     },
@@ -107,17 +104,17 @@ SAML_CONFIG.update({
         'sp': {
             # for compatibility with older IdPs. See also https://github.com/IdentityPython/pysaml2/issues/490
             'want_response_signed': False,
-            'logout_requests_signed': CLOUDROCK_AUTH_SAML2['logout_requests_signed'],
-            'authn_requests_signed': CLOUDROCK_AUTH_SAML2['authn_requests_signed'],
+            'logout_requests_signed': CLOUDROCK_AUTH_SAML2['LOGOUT_REQUESTS_SIGNED'],
+            'authn_requests_signed': CLOUDROCK_AUTH_SAML2['AUTHN_REQUESTS_SIGNED'],
             'endpoints': {
                 'assertion_consumer_service': [
-                    (CLOUDROCK_AUTH_SAML2['base_url'], '/api-auth/saml2/login/complete/',
+                    (CLOUDROCK_CORE['METAL_URL'], '/api-auth/saml2/login/complete/',
                      saml2.BINDING_HTTP_POST),
                 ],
                 'single_logout_service': [
-                    (CLOUDROCK_AUTH_SAML2['base_url'], '/api-auth/saml2/logout/complete/',
+                    (CLOUDROCK_CORE['METAL_URL'], '/api-auth/saml2/logout/complete/',
                      saml2.BINDING_HTTP_REDIRECT),
-                    (CLOUDROCK_AUTH_SAML2['base_url'], '/api-auth/saml2/logout/complete/',
+                    (CLOUDROCK_CORE['METAL_URL', '/api-auth/saml2/logout/complete/',
                      saml2.BINDING_HTTP_POST),
                 ],
             },
@@ -127,15 +124,15 @@ SAML_CONFIG.update({
                     'UIInfo': {
                         'display_name': {
                             'lang': 'en',
-                            'text': CLOUDROCK_AUTH_SAML2['display_name'],
+                            'text': CLOUDROCK_AUTH_SAML2['DISPLAY_NAME'],
                         },
                         'description': {
                             'lang': 'en',
-                            'text': CLOUDROCK_AUTH_SAML2['description'],
+                            'text': CLOUDROCK_AUTH_SAML2['DESCRIPTION'],
                         },
                         'privacy_statement_url': {
                             'lang': 'en',
-                            'text': CLOUDROCK_AUTH_SAML2['privacy_statement_url'],
+                            'text': CLOUDROCK_AUTH_SAML2['PRIVACY_STATEMENT_URL'],
                         },
                         'logo': {
                             'text': 'https://cloudrock.example.com/login-logo.png',
@@ -146,15 +143,15 @@ SAML_CONFIG.update({
                     'RegistrationInfo': {
                         'registration_policy': {
                             'lang': 'en',
-                            'text': CLOUDROCK_AUTH_SAML2['registration_policy'],
+                            'text': CLOUDROCK_AUTH_SAML2['REGISTRATION_POLICY'],
                         },
-                        'registrationAuthority': CLOUDROCK_AUTH_SAML2['registration_authority'],
-                        'registrationInstant': CLOUDROCK_AUTH_SAML2['registration_instant'],
+                        'registrationAuthority': CLOUDROCK_AUTH_SAML2['REGISTRATION_AUTHORITY'],
+                        'registrationInstant': CLOUDROCK_AUTH_SAML2['REGISTRATION_INSTANT'],
                     },
                 }
             },
-            'required_attributes': CLOUDROCK_AUTH_SAML2['required_attributes'],
-            'optional_attributes': CLOUDROCK_AUTH_SAML2['optional_attributes'],
+            'required_attributes': CLOUDROCK_AUTH_SAML2['REQUIRED_ATTRIBUTES'],
+            'optional_attributes': CLOUDROCK_AUTH_SAML2['OPTIONAL_ATTRIBUTES'],
         },
     },
     'metadata': [
@@ -163,19 +160,19 @@ SAML_CONFIG.update({
             'metadata': [('cloudrock_auth_saml2.utils.DatabaseMetadataLoader',)],
         },
     ],
-    'organization': CLOUDROCK_AUTH_SAML2['organization'],
-    'debug': int(CLOUDROCK_AUTH_SAML2['debug']),
-    'key_file': CLOUDROCK_AUTH_SAML2['key_file'],
-    'cert_file': CLOUDROCK_AUTH_SAML2['cert_file'],
+    'organization': CLOUDROCK_AUTH_SAML2['ORGANIZATION'],
+    'debug': int(CLOUDROCK_AUTH_SAML2['DEBUG']),
+    'key_file': CLOUDROCK_AUTH_SAML2['KEY_FILE'],
+    'cert_file': CLOUDROCK_AUTH_SAML2['CERT_FILE'],
     # keys are required in order to be able to decrypt encrypted messages from IdPs
-    'encryption_keypairs': [{"key_file": CLOUDROCK_AUTH_SAML2['key_file'], "cert_file": CLOUDROCK_AUTH_SAML2['cert_file']}],
+    'encryption_keypairs': [{"key_file": CLOUDROCK_AUTH_SAML2['KEY_FILE'], "cert_file": CLOUDROCK_AUTH_SAML2['CERT_FILE']}],
 })
 
-if CLOUDROCK_AUTH_SAML2['log_file'] != '':
-    level = CLOUDROCK_AUTH_SAML2['log_level'].upper()
+if CLOUDROCK_AUTH_SAML2['LOG_LEVEL'] != '':
+    level = CLOUDROCK_AUTH_SAML2['LOG_LEVEL'].upper()
     LOGGING['handlers']['file-saml2'] = {
         'class': 'logging.handlers.WatchedFileHandler',
-        'filename': CLOUDROCK_AUTH_SAML2['log_file'],
+        'filename': CLOUDROCK_AUTH_SAML2['LOG_FILE'],
         'formatter': 'simple',
         'level': level,
     }
@@ -193,11 +190,11 @@ if CLOUDROCK_AUTH_SAML2['log_file'] != '':
     }
 
 SAML_CONFIG['encryption_keypairs'] = [{
-    'key_file': CLOUDROCK_AUTH_SAML2['key_file'],
-    'cert_file': CLOUDROCK_AUTH_SAML2['cert_file'],
+    'key_file': CLOUDROCK_AUTH_SAML2['KEY_FILE'],
+    'cert_file': CLOUDROCK_AUTH_SAML2['CERT_FILE'],
 }]
 
-for remote in CLOUDROCK_AUTH_SAML2['idp_metadata_remote']:
+for remote in CLOUDROCK_AUTH_SAML2['IDP_METADATA_REMOTE']:
     SAML_CONFIG['metadata'].append({
         'class': 'saml2.mdstore.MetaDataExtern',
         'metadata': [(remote['url'], remote['cert'])]
