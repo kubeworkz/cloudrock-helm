@@ -69,6 +69,11 @@ celery:
   worker:
     enabled: true
 
+proxy:
+  httpsProxy: "https://proxy.example.com/"
+  httpProxy: "http://proxy.example.com/"
+  noProxy: ".test"
+  
 cloudrock:
   imageName: "kubeworkz/cloudrock-metal"
   imageTag: "latest"
@@ -90,7 +95,7 @@ cloudrock:
   notificationSubject: "Test subject"
   timeZone: "UTC"
   features: []
-  currencyName: "EUR"
+  currencyName: "USD"
   metalUrl: "http://cloudrock.example.com/"
   site:
     name: "Cloudrock"

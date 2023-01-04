@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: cloudrock-metal-initdb-job
+  name: cloudrock-mastermind-initdb-job
   labels:
 {{ include "cloudrock.labels" . | indent 4 }}
   annotations:
@@ -50,7 +50,7 @@ spec:
                 secretKeyRef:
                   name: {{ template "cloudrock.postgresql.secret" . }}
                   key: {{ template "cloudrock.postgresql.secret.passwordKey" . }}
-        - name: cloudrock-metal-migrate
+        - name: cloudrock-mastermind-migrate
           image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
           args:
             - initdb
@@ -85,6 +85,18 @@ spec:
           - name: CLOUDROCK_DISABLED_EXTENSIONS
             value: {{ .Values.cloudrock.disabledExtensions | toJson | quote }}
           {{ end }}
+          {{ if .Values.proxy.httpsProxy }}
+          - name: https_proxy
+            value: {{ .Values.proxy.httpsProxy | quote }}
+          {{ end }}
+          {{ if .Values.proxy.httpProxy }}
+          - name: http_proxy
+            value: {{ .Values.proxy.httpProxy | quote }}
+          {{ end }}
+          {{ if .Values.proxy.noProxy }}
+          - name: no_proxy
+            value: {{ .Values.proxy.noProxy | quote }}
+          {{ end }}
           volumeMounts:
             - name: api-override
               mountPath: /etc/cloudrock/override.conf.py
@@ -95,9 +107,24 @@ spec:
             - name: config-features-json
               mountPath: /etc/cloudrock/features.json
               subPath: features.json
+            {{ if .Values.cloudrock.mastermindTemplating.mastermindTemplatesPath }}
+            - name: cloudrock-mastermind-template
+              mountPath: /etc/cloudrock/notifications-templates.yaml
+              subPath: "mastermind-templates.yaml"
+            {{ end }}
+            {{ if .Values.cloudrock.whitelabeling.privacyHtmlPath }}
+            - name: cloudrock-mastermind-user-agreements
+              mountPath: /etc/cloudrock/privacy-policy.html
+              subPath: "mastermind-pp.html"
+            {{ end }}
+            {{ if .Values.cloudrock.whitelabeling.tosHtmlPath }}
+            - name: cloudrock-mastermind-user-agreements
+              mountPath: /etc/cloudrock/terms-of-service.html
+              subPath: "mastermind-tos.html"
+            {{ end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
-        - name: cloudrock-metal-create-dbcache
+        - name: cloudrock-mastermind-create-dbcache
           image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
           args:
             - initdb-cache
@@ -128,6 +155,18 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           {{ end }}
+          {{ if .Values.proxy.httpsProxy }}
+          - name: https_proxy
+            value: {{ .Values.proxy.httpsProxy | quote }}
+          {{ end }}
+          {{ if .Values.proxy.httpProxy }}
+          - name: http_proxy
+            value: {{ .Values.proxy.httpProxy | quote }}
+          {{ end }}
+          {{ if .Values.proxy.noProxy }}
+          - name: no_proxy
+            value: {{ .Values.proxy.noProxy | quote }}
+          {{ end }}
           volumeMounts:
             - name: api-override
               mountPath: /etc/cloudrock/override.conf.py
@@ -138,7 +177,7 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 {{ if has "SAML2" .Values.cloudrock.authMethods }}
-        - name: cloudrock-metal-saml2-metadata-sync
+        - name: cloudrock-mastermind-saml2-metadata-sync
           image: {{ .Values.global.imageRegistry }}/{{ .Values.cloudrock.imageName }}:{{ .Values.cloudrock.imageTag }}
           args:
             - saml2-metadata-sync
@@ -185,6 +224,18 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           {{ end }}
+          {{ if .Values.proxy.httpsProxy }}
+          - name: https_proxy
+            value: {{ .Values.proxy.httpsProxy | quote }}
+          {{ end }}
+          {{ if .Values.proxy.httpProxy }}
+          - name: http_proxy
+            value: {{ .Values.proxy.httpProxy | quote }}
+          {{ end }}
+          {{ if .Values.proxy.noProxy }}
+          - name: no_proxy
+            value: {{ .Values.proxy.noProxy | quote }}
+          {{ end }}
           volumeMounts:
             - name: api-override
               mountPath: /etc/cloudrock/override.conf.py
@@ -214,7 +265,17 @@ spec:
           name: api-celery-config
       - name: config-features-json
         configMap:
-          name: metal-config-features-json
+          name: mastermind-config-features-json
+      {{ if .Values.cloudrock.mastermindTemplating.mastermindTemplatesPath }}
+      - name: cloudrock-mastermind-template
+        configMap:
+          name: mastermind-template-config
+      {{ end }}
+      {{ if or (.Values.cloudrock.whitelabeling.privacyHtmlPath) (.Values.cloudrock.whitelabeling.tosHtmlPath) }}
+      - name: cloudrock-mastermind-user-agreements
+        configMap:
+          name: mastermind-user-agreement-config
+      {{ end }}
       {{ if has "SAML2" .Values.cloudrock.authMethods }}
       - name: cloudrock-saml2-certs
         secret:
