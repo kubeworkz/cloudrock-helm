@@ -10,3 +10,5 @@ Outline:
 - [SAML2](saml2.md)
 - [HPA](hpa.md)
 - [Stress testing](locust.md)
+- [IP whitelisting](ip-whitelisting.md)
+- [Proxy setup](proxy-setup.md)
